@@ -24,11 +24,13 @@ class TowerContentLoaderTest {
             tower.arrow.attacks_per_second=2.0
             tower.arrow.cost_gold=8
             tower.arrow.attack_mode=hitscan
+            tower.arrow.sell_refund_ratio=0.5
             tower.cannon.range_units=2.2
             tower.cannon.damage_per_shot=10.0
             tower.cannon.attacks_per_second=0.7
             tower.cannon.cost_gold=18
             tower.cannon.attack_mode=hitscan
+            tower.cannon.sell_refund_ratio=0.4
             """
         );
 
@@ -38,5 +40,6 @@ class TowerContentLoaderTest {
         assertEquals(2.2, catalog.required("cannon").rangeUnits());
         assertEquals(4.0, catalog.required("arrow").damagePerShot());
         assertEquals("hitscan", catalog.required("arrow").attackMode());
+        assertEquals(0.4, catalog.required("cannon").sellRefundRatio());
     }
 }

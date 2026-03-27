@@ -2,6 +2,7 @@ package com.swmschmidt.td.infrastructure.content;
 
 import com.swmschmidt.td.core.gameplay.uiaction.UiActionCatalog;
 import com.swmschmidt.td.core.gameplay.uiaction.UiActionDefinition;
+import com.swmschmidt.td.core.gameplay.uiaction.UiActionMode;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,7 +43,9 @@ public final class UiActionContentLoader {
                 id,
                 required(properties, prefix + "label"),
                 required(properties, prefix + "hotkey"),
-                supportedEntityTypes
+                supportedEntityTypes,
+                resolveMode(properties, id),
+                optional(properties, prefix + "tower_id")
             ));
         }
 
@@ -55,5 +58,22 @@ public final class UiActionContentLoader {
             throw new IllegalStateException("Missing required UI action property: " + key);
         }
         return value;
+    }
+
+    private String optional(Properties properties, String key) {
+        String value = properties.getProperty(key);
+        return value == null ? "" : value.trim();
+    }
+
+    private UiActionMode resolveMode(Properties properties, String actionId) {
+        String configured = properties.getProperty("ui.action." + actionId + ".mode");
+        String value = (configured == null || configured.isBlank()) ? actionId : configured;
+        return switch (value.trim().toLowerCase()) {
+            case "move" -> UiActionMode.MOVE;
+            case "build" -> UiActionMode.BUILD;
+            case "sell" -> UiActionMode.SELL;
+            case "cancel" -> UiActionMode.CANCEL;
+            default -> throw new IllegalStateException("Unsupported ui action mode for action " + actionId + ": " + value);
+        };
     }
 }

@@ -18,13 +18,20 @@ class UiActionContentLoaderTest {
         Files.writeString(
             uiActionsFile,
             """
-            ui.action.ids=move;build
+            ui.action.ids=move;build_arrow;sell
             ui.action.move.label=Move
             ui.action.move.hotkey=M
             ui.action.move.entity_types=builder
-            ui.action.build.label=Build
-            ui.action.build.hotkey=B
-            ui.action.build.entity_types=builder;tower
+            ui.action.move.mode=move
+            ui.action.build_arrow.label=Build Arrow
+            ui.action.build_arrow.hotkey=B
+            ui.action.build_arrow.entity_types=builder
+            ui.action.build_arrow.mode=build
+            ui.action.build_arrow.tower_id=arrow
+            ui.action.sell.label=Sell
+            ui.action.sell.hotkey=X
+            ui.action.sell.entity_types=tower
+            ui.action.sell.mode=sell
             """
         );
 
@@ -33,5 +40,6 @@ class UiActionContentLoaderTest {
         assertEquals(2, catalog.actionsForEntityType("builder").size());
         assertEquals(1, catalog.actionsForEntityType("tower").size());
         assertEquals("move", catalog.resolveActionIdForHotkey("builder", "M"));
+        assertEquals("build_arrow", catalog.resolveActionIdForHotkey("builder", "B"));
     }
 }

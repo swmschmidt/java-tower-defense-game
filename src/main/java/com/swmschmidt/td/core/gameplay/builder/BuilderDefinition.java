@@ -4,6 +4,7 @@ public record BuilderDefinition(
     String id,
     double moveSpeedUnitsPerSecond,
     double selectionRadius,
+    double buildRangeUnits,
     double spawnX,
     double spawnZ
 ) {
@@ -16,6 +17,9 @@ public record BuilderDefinition(
         }
         if (selectionRadius <= 0.0) {
             throw new IllegalArgumentException("Builder selectionRadius must be positive");
+        }
+        if (buildRangeUnits <= 0.0) {
+            throw new IllegalArgumentException("Builder buildRangeUnits must be positive");
         }
     }
 }

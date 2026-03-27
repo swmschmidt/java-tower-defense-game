@@ -5,11 +5,13 @@ import java.util.List;
 public record WorldView(
 	GridDefinition grid,
 	MapDebugView mapDebugView,
+	BuildPreviewView buildPreview,
 	List<TowerView> towers,
 	List<BuilderView> builders,
 	List<EnemyView> enemies,
 	List<HudActionView> hudActions,
 	String activeHudActionId,
+	String actionFeedbackMessage,
 	String selectedEntityType,
 	String selectedEntityId,
 	int currentWave,
@@ -28,6 +30,6 @@ public record WorldView(
 	}
 
 	public WorldView(GridDefinition grid) {
-		this(grid, null, List.of(), List.of(), List.of(), List.of(), "", "", "", 1, 1, "PRE_WAVE", 0, 0, false, false);
+		this(grid, null, null, List.of(), List.of(), List.of(), List.of(), "", "", "", "", 1, 1, "PRE_WAVE", 0, 0, false, false);
 	}
 }

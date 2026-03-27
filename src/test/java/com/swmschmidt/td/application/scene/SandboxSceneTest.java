@@ -5,12 +5,13 @@ import com.swmschmidt.td.core.gameplay.builder.BuilderDefinition;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyDefinition;
 import com.swmschmidt.td.core.gameplay.map.GameplayMap;
-import com.swmschmidt.td.core.gameplay.map.MapPath;
 import com.swmschmidt.td.core.gameplay.map.GridCell;
+import com.swmschmidt.td.core.gameplay.map.MapPath;
 import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
 import com.swmschmidt.td.core.gameplay.tower.TowerDefinition;
 import com.swmschmidt.td.core.gameplay.uiaction.UiActionCatalog;
 import com.swmschmidt.td.core.gameplay.uiaction.UiActionDefinition;
+import com.swmschmidt.td.core.gameplay.uiaction.UiActionMode;
 import com.swmschmidt.td.core.gameplay.wave.WaveCatalog;
 import com.swmschmidt.td.core.gameplay.wave.WaveDefinition;
 import com.swmschmidt.td.core.gameplay.wave.WaveSpawnDefinition;
@@ -25,18 +26,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SandboxSceneTest {
 
     private static final TowerCatalog TEST_TOWERS = new TowerCatalog(Map.of(
         "arrow",
-        new TowerDefinition("arrow", 3.0, 4.0, 2.0, 5, "hitscan")
+        new TowerDefinition("arrow", 3.0, 4.0, 2.0, 5, "hitscan", 0.5)
     ));
 
     private static final WaveCatalog SINGLE_WAVE = new WaveCatalog(List.of(
@@ -45,13 +46,14 @@ class SandboxSceneTest {
 
     private static final BuilderCatalog TEST_BUILDERS = new BuilderCatalog(Map.of(
         "builder",
-        new BuilderDefinition("builder", 4.0, 0.4, -1.0, -1.0)
+        new BuilderDefinition("builder", 4.0, 0.4, 4.0, -1.0, -1.0)
     ));
 
     private static final UiActionCatalog TEST_UI_ACTIONS = new UiActionCatalog(List.of(
-        new UiActionDefinition("move", "Move", "M", Set.of("builder")),
-        new UiActionDefinition("build", "Build", "B", Set.of("builder")),
-        new UiActionDefinition("cancel", "Cancel", "C", Set.of("none", "builder", "tower"))
+        new UiActionDefinition("move", "Move", "M", Set.of("builder"), UiActionMode.MOVE, ""),
+        new UiActionDefinition("build_arrow", "Build Arrow", "B", Set.of("builder"), UiActionMode.BUILD, "arrow"),
+        new UiActionDefinition("sell", "Sell", "X", Set.of("tower"), UiActionMode.SELL, ""),
+        new UiActionDefinition("cancel", "Cancel", "C", Set.of("none", "builder", "tower"), UiActionMode.CANCEL, "")
     ));
 
     @Test
@@ -138,8 +140,11 @@ class SandboxSceneTest {
     }
 
     @Test
-    void placesTowerKillsEnemyAndRewardsGold() {
-        AtomicBoolean placeTowerOnce = new AtomicBoolean(true);
+    void placesTowerViaBuildActionAndRewardsGoldAfterKill() {
+        Queue<Optional<Vector3>> selectEvents = new ArrayDeque<>();
+        Queue<Optional<Vector3>> contextEvents = new ArrayDeque<>();
+        Queue<Optional<String>> actionEvents = new ArrayDeque<>();
+
         SandboxScene scene = new SandboxScene(
             new GridDefinition(8, 1.0),
             new GameplayMap(
@@ -162,12 +167,21 @@ class SandboxSceneTest {
             "move",
             10,
             3,
-            () -> placeTowerOnce.getAndSet(false),
-            () -> Optional.empty(),
-            () -> Optional.empty(),
-            () -> Optional.empty(),
+            () -> false,
+            () -> Optional.ofNullable(selectEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.ofNullable(contextEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.ofNullable(actionEvents.poll()).orElse(Optional.empty()),
             () -> Optional.empty()
         );
+
+        selectEvents.add(Optional.of(new Vector3(-1.0, 0.0, -1.0)));
+        scene.update(0.1);
+
+        actionEvents.add(Optional.of("build_arrow"));
+        scene.update(0.1);
+
+        contextEvents.add(Optional.of(new Vector3(0.0, 0.0, 0.0)));
+        scene.update(0.1);
 
         for (int i = 0; i < 20; i++) {
             scene.update(0.25);
@@ -193,7 +207,7 @@ class SandboxSceneTest {
                 Set.of()
             ),
             new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 5.0, 0.3, 1.0, 1))),
-            new TowerCatalog(Map.of("arrow", new TowerDefinition("arrow", 4.0, 2.0, 20.0, 1, "hitscan"))),
+            new TowerCatalog(Map.of("arrow", new TowerDefinition("arrow", 4.0, 2.0, 20.0, 1, "hitscan", 0.5))),
             TEST_BUILDERS,
             TEST_UI_ACTIONS,
             new WaveCatalog(List.of(
@@ -310,12 +324,124 @@ class SandboxSceneTest {
         scene.update(0.1);
         assertEquals("move", scene.captureView().activeHudActionId());
 
-        hudActionEvents.add(Optional.of("build"));
+        hudActionEvents.add(Optional.of("build_arrow"));
         scene.update(0.1);
-        assertEquals("build", scene.captureView().activeHudActionId());
+        assertEquals("build_arrow", scene.captureView().activeHudActionId());
 
         hotkeyActionEvents.add(Optional.of("move"));
         scene.update(0.1);
         assertEquals("move", scene.captureView().activeHudActionId());
+    }
+
+    @Test
+    void sellsSelectedTowerThroughSellActionAndRefundsGold() {
+        Queue<Optional<Vector3>> selectEvents = new ArrayDeque<>();
+        Queue<Optional<Vector3>> contextEvents = new ArrayDeque<>();
+        Queue<Optional<String>> actionEvents = new ArrayDeque<>();
+
+        SandboxScene scene = new SandboxScene(
+            new GridDefinition(8, 1.0),
+            new GameplayMap(
+                "test-map",
+                new MapPath(List.of(new Vector3(0.0, 0.0, 0.0), new Vector3(2.0, 0.0, 0.0))),
+                Set.of(new GridCell(0, 0)),
+                Set.of()
+            ),
+            new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 0.1, 0.3, 999.0, 0))),
+            TEST_TOWERS,
+            TEST_BUILDERS,
+            TEST_UI_ACTIONS,
+            SINGLE_WAVE,
+            100.0,
+            0.0,
+            "arrow",
+            "builder",
+            "move",
+            10,
+            3,
+            () -> false,
+            () -> Optional.ofNullable(selectEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.ofNullable(contextEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.ofNullable(actionEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.empty()
+        );
+
+        selectEvents.add(Optional.of(new Vector3(-1.0, 0.0, -1.0)));
+        scene.update(0.1);
+
+        actionEvents.add(Optional.of("build_arrow"));
+        scene.update(0.1);
+
+        contextEvents.add(Optional.of(new Vector3(0.0, 0.0, 0.0)));
+        scene.update(0.1);
+
+        WorldView built = scene.captureView();
+        assertEquals(1, built.towers().size());
+        assertEquals(5, built.playerGold());
+
+        Vector3 towerPosition = built.towers().getFirst().position();
+        selectEvents.add(Optional.of(towerPosition));
+        scene.update(0.1);
+
+        actionEvents.add(Optional.of("sell"));
+        scene.update(0.1);
+
+        contextEvents.add(Optional.of(towerPosition));
+        scene.update(0.1);
+
+        WorldView sold = scene.captureView();
+        assertEquals(0, sold.towers().size());
+        assertEquals(8, sold.playerGold());
+        assertNotNull(sold.actionFeedbackMessage());
+        assertTrue(sold.actionFeedbackMessage().contains("Sold"));
+    }
+
+    @Test
+    void reportsInvalidBuildActionFeedbackWhenCellIsOutOfRange() {
+        Queue<Optional<Vector3>> selectEvents = new ArrayDeque<>();
+        Queue<Optional<Vector3>> contextEvents = new ArrayDeque<>();
+        Queue<Optional<String>> actionEvents = new ArrayDeque<>();
+
+        SandboxScene scene = new SandboxScene(
+            new GridDefinition(8, 1.0),
+            new GameplayMap(
+                "test-map",
+                new MapPath(List.of(new Vector3(0.0, 0.0, 0.0), new Vector3(8.0, 0.0, 0.0))),
+                Set.of(new GridCell(6, 6)),
+                Set.of()
+            ),
+            new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 2.0, 0.3, 10.0, 2))),
+            TEST_TOWERS,
+            TEST_BUILDERS,
+            TEST_UI_ACTIONS,
+            SINGLE_WAVE,
+            100.0,
+            0.0,
+            "arrow",
+            "builder",
+            "move",
+            20,
+            3,
+            () -> false,
+            () -> Optional.ofNullable(selectEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.ofNullable(contextEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.ofNullable(actionEvents.poll()).orElse(Optional.empty()),
+            () -> Optional.empty()
+        );
+
+        selectEvents.add(Optional.of(new Vector3(-1.0, 0.0, -1.0)));
+        scene.update(0.1);
+
+        actionEvents.add(Optional.of("build_arrow"));
+        scene.update(0.1);
+
+        contextEvents.add(Optional.of(new Vector3(6.0, 0.0, 6.0)));
+        scene.update(0.1);
+
+        WorldView view = scene.captureView();
+        assertEquals(0, view.towers().size());
+        assertTrue(view.actionFeedbackMessage().contains("out of builder range"));
+        assertNotNull(view.buildPreview());
+        assertFalse(view.buildPreview().valid());
     }
 }
