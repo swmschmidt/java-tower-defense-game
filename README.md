@@ -2,7 +2,7 @@
 
 Incremental playable foundation for a 3D tower defense game in Java 25.
 
-## Current Step Scope (Step 04)
+## Current Step Scope (Step 05)
 
 The project now provides:
 
@@ -17,20 +17,27 @@ The project now provides:
 - Data-driven map loading from content (`content/base/maps/*.properties`)
 - Data-driven enemy definitions from content (`content/base/enemies/*.properties`) including health and kill reward
 - Data-driven tower definitions from content (`content/base/towers/*.properties`)
+- Data-driven builder definitions from content (`content/base/units/*.properties`)
 - Data-driven wave definitions from content (`content/base/waves/*.properties`)
 - Wave spawner service driven by configured per-wave spawn groups
 - Centralized match state machine with `PRE_WAVE`, `IN_WAVE`, `POST_WAVE`, `VICTORY`, and `DEFEAT`
 - Basic tower placement (`T`) on buildable cells
+- Selection system for world entities (currently builder and tower hit test hooks)
+- Runtime builder unit instance with data-driven spawn and movement speed
+- Right-click movement through a command queue (no direct input-to-gameplay mutation)
+- Serializable-friendly command abstractions for selection and builder movement
+- World picking infrastructure (screen-to-ground ray pick)
 - Target acquisition and attack cadence for placed towers
 - Extensible attack abstraction with initial `hitscan` mode
 - Enemy health, death handling, and gold reward on kill
 - Economy and survival tracking with gold and lives
-- Placeholder HUD for wave, match state, gold, and lives
+- Placeholder HUD for wave, match state, economy, lives, and selected entity info
 - Placeholder rendering for towers, enemies, and map debug overlays (path, buildable and blocked cells)
+- Builder placeholder rendering with selection ring visualization
 - Win condition when all waves are cleared
 - Lose trigger when player lives reach zero
 
-Still intentionally out of scope: final UI layout, builder movement, upgrades, audio, and networking.
+Still intentionally out of scope: final lower HUD layout, build menus, upgrades, audio, and networking.
 
 ## Run
 
@@ -50,6 +57,8 @@ Controls:
 
 - `Esc`: close the game
 - `T`: place one default tower on the next available buildable cell
+- `Left Click`: select world entity
+- `Right Click`: issue move command for selected builder
 - Window close button: close the game
 
 Gameplay note:
@@ -78,10 +87,12 @@ Key content/config properties for this step:
 - `content.map_file`
 - `content.enemies_file`
 - `content.towers_file`
+- `content.builders_file`
 - `content.waves_file`
 - `gameplay.pre_wave_delay_seconds`
 - `gameplay.post_wave_delay_seconds`
 - `gameplay.default_tower_id`
+- `gameplay.default_builder_id`
 - `gameplay.starting_gold`
 - `gameplay.starting_lives`
 
@@ -97,4 +108,5 @@ Current content files used by gameplay:
 - `content/base/maps/sandbox-map.properties`
 - `content/base/enemies/base-enemies.properties`
 - `content/base/towers/base-towers.properties`
+- `content/base/units/base-builders.properties`
 - `content/base/waves/sandbox-waves.properties`

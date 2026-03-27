@@ -16,10 +16,12 @@ public record AppConfig(
     String mapContentPath,
     String enemyContentPath,
     String towerContentPath,
+    String builderContentPath,
     String waveContentPath,
     double preWaveDelaySeconds,
     double postWaveDelaySeconds,
     String defaultTowerId,
+    String defaultBuilderId,
     int startingGold,
     int startingLives
 ) {

@@ -1,5 +1,7 @@
 package com.swmschmidt.td.application.scene;
 
+import com.swmschmidt.td.core.gameplay.builder.BuilderCatalog;
+import com.swmschmidt.td.core.gameplay.builder.BuilderDefinition;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyDefinition;
 import com.swmschmidt.td.core.gameplay.map.GameplayMap;
@@ -15,10 +17,14 @@ import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.WorldView;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,6 +41,11 @@ class SandboxSceneTest {
         new WaveDefinition("wave_01", List.of(new WaveSpawnDefinition("grunt", 1, 0.5)))
     ));
 
+    private static final BuilderCatalog TEST_BUILDERS = new BuilderCatalog(Map.of(
+        "builder",
+        new BuilderDefinition("builder", 4.0, 0.4, -1.0, -1.0)
+    ));
+
     @Test
     void spawnsEnemyFromWaveAndMovesDeterministicallyAlongPath() {
         SandboxScene scene = new SandboxScene(
@@ -47,13 +58,17 @@ class SandboxSceneTest {
             ),
             new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 2.0, 0.3, 10.0, 2))),
             TEST_TOWERS,
+            TEST_BUILDERS,
             SINGLE_WAVE,
             0.0,
             0.0,
             "arrow",
+            "builder",
             20,
             3,
-            () -> false
+            () -> false,
+            () -> Optional.empty(),
+            () -> Optional.empty()
         );
 
         scene.update(0.4);
@@ -86,15 +101,19 @@ class SandboxSceneTest {
             ),
             new EnemyCatalog(Map.of("runner", new EnemyDefinition("runner", 4.0, 0.25, 8.0, 3))),
             TEST_TOWERS,
+            TEST_BUILDERS,
             new WaveCatalog(List.of(
                 new WaveDefinition("wave_01", List.of(new WaveSpawnDefinition("runner", 1, 0.5)))
             )),
             0.0,
             0.5,
             "arrow",
+            "builder",
             20,
             1,
-            () -> false
+            () -> false,
+            () -> Optional.empty(),
+            () -> Optional.empty()
         );
 
         scene.update(0.5);
@@ -115,15 +134,19 @@ class SandboxSceneTest {
             ),
             new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 0.8, 0.3, 10.0, 7))),
             TEST_TOWERS,
+            TEST_BUILDERS,
             new WaveCatalog(List.of(
                 new WaveDefinition("wave_01", List.of(new WaveSpawnDefinition("grunt", 1, 0.1)))
             )),
             0.0,
             0.0,
             "arrow",
+            "builder",
             10,
             3,
-            () -> placeTowerOnce.getAndSet(false)
+            () -> placeTowerOnce.getAndSet(false),
+            () -> Optional.empty(),
+            () -> Optional.empty()
         );
 
         for (int i = 0; i < 20; i++) {
@@ -151,6 +174,7 @@ class SandboxSceneTest {
             ),
             new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 5.0, 0.3, 1.0, 1))),
             new TowerCatalog(Map.of("arrow", new TowerDefinition("arrow", 4.0, 2.0, 20.0, 1, "hitscan"))),
+            TEST_BUILDERS,
             new WaveCatalog(List.of(
                 new WaveDefinition("wave_01", List.of(new WaveSpawnDefinition("grunt", 1, 0.1))),
                 new WaveDefinition("wave_02", List.of(new WaveSpawnDefinition("grunt", 1, 0.1)))
@@ -158,9 +182,12 @@ class SandboxSceneTest {
             0.0,
             0.0,
             "arrow",
+            "builder",
             10,
             3,
-            () -> false
+            () -> false,
+            () -> Optional.empty(),
+            () -> Optional.empty()
         );
 
         for (int i = 0; i < 8; i++) {
@@ -170,5 +197,53 @@ class SandboxSceneTest {
         WorldView view = scene.captureView();
         assertTrue(view.victoryTriggered());
         assertEquals("VICTORY", view.matchState());
+    }
+
+    @Test
+    void selectsBuilderAndMovesItUsingCommandFlow() {
+        Queue<Optional<Vector3>> selectEvents = new ArrayDeque<>();
+        Queue<Optional<Vector3>> contextEvents = new ArrayDeque<>();
+        Supplier<Optional<Vector3>> selectSupplier = () -> Optional.ofNullable(selectEvents.poll()).orElse(Optional.empty());
+        Supplier<Optional<Vector3>> contextSupplier = () -> Optional.ofNullable(contextEvents.poll()).orElse(Optional.empty());
+
+        SandboxScene scene = new SandboxScene(
+            new GridDefinition(8, 1.0),
+            new GameplayMap(
+                "test-map",
+                new MapPath(List.of(new Vector3(0.0, 0.0, 0.0), new Vector3(10.0, 0.0, 0.0))),
+                Set.of(new GridCell(0, 0)),
+                Set.of()
+            ),
+            new EnemyCatalog(Map.of("grunt", new EnemyDefinition("grunt", 2.0, 0.3, 10.0, 2))),
+            TEST_TOWERS,
+            TEST_BUILDERS,
+            SINGLE_WAVE,
+            100.0,
+            0.0,
+            "arrow",
+            "builder",
+            20,
+            3,
+            () -> false,
+            selectSupplier,
+            contextSupplier
+        );
+
+        selectEvents.add(Optional.of(new Vector3(-1.0, 0.0, -1.0)));
+        scene.update(0.1);
+        WorldView selectedView = scene.captureView();
+        assertEquals("builder", selectedView.selectedEntityType());
+        assertEquals("builder-1", selectedView.selectedEntityId());
+        assertTrue(selectedView.builders().getFirst().selected());
+
+        contextEvents.add(Optional.of(new Vector3(2.0, 0.0, -1.0)));
+        scene.update(0.5);
+        scene.update(0.5);
+
+        WorldView movedView = scene.captureView();
+        assertEquals(2.0, movedView.builders().getFirst().position().x(), 1e-9);
+        assertEquals(-1.0, movedView.builders().getFirst().position().z(), 1e-9);
+        assertEquals("builder", movedView.selectedEntityType());
+        assertEquals("builder-1", movedView.selectedEntityId());
     }
 }

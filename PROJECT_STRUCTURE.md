@@ -34,7 +34,9 @@
 |   |   |   |-- bootstrap/
 |   |   |   |-- core/
 |   |   |   |   |-- gameplay/
+|   |   |   |   |   |-- builder/
 |   |   |   |   |   |-- combat/
+|   |   |   |   |   |-- command/
 |   |   |   |   |   |-- enemy/
 |   |   |   |   |   |-- match/
 |   |   |   |   |   `-- map/
@@ -69,7 +71,9 @@
 ## Notes
 
 - The current implementation targets Step 04.
+- The current implementation targets Step 05.
 - Rendering is isolated behind `FrameRenderer`.
 - Scene state is exposed through `WorldView` to keep simulation decoupled from rendering.
-- Map, enemy, tower, and wave definitions are loaded from external content files.
+- Map, enemy, tower, builder, and wave definitions are loaded from external content files.
 - Match flow is centralized in gameplay state components (`match` and `wave` packages).
+- Selection and movement use a command-oriented flow so input does not directly mutate gameplay state.
