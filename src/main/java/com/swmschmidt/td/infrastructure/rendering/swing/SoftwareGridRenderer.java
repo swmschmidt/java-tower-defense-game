@@ -1,7 +1,9 @@
 package com.swmschmidt.td.infrastructure.rendering.swing;
 
 import com.swmschmidt.td.core.math.Vector3;
+import com.swmschmidt.td.core.scene.EnemyView;
 import com.swmschmidt.td.core.scene.GridDefinition;
+import com.swmschmidt.td.core.scene.MapDebugView;
 import com.swmschmidt.td.core.scene.WorldView;
 import com.swmschmidt.td.infrastructure.rendering.api.FrameRenderer;
 import com.swmschmidt.td.infrastructure.rendering.camera.FixedCamera;
@@ -12,6 +14,7 @@ import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.util.List;
 
 public final class SoftwareGridRenderer implements FrameRenderer {
     private static final double NEAR_PLANE = 0.1;
@@ -23,8 +26,23 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         drawBackground(graphics, width, height);
         drawGroundGrid(graphics, worldView.grid(), camera, width, height);
+
+        if (worldView.mapDebugView() != null) {
+            drawMapDebug(graphics, worldView.mapDebugView(), worldView.grid(), camera, width, height);
+        }
+        drawEnemies(graphics, worldView.enemies(), camera, width, height);
+        if (worldView.defeatTriggered()) {
+            drawDefeatLabel(graphics, width);
+        }
+
         graphics.dispose();
         return image;
+    }
+
+    private void drawDefeatLabel(Graphics2D graphics, int width) {
+        graphics.setColor(new Color(204, 64, 64));
+        graphics.setFont(graphics.getFont().deriveFont(28f));
+        graphics.drawString("Defeat: an enemy reached the goal", Math.max(16, width / 2 - 220), 36);
     }
 
     private void drawBackground(Graphics2D graphics, int width, int height) {
@@ -93,6 +111,109 @@ public final class SoftwareGridRenderer implements FrameRenderer {
             width,
             height
         );
+    }
+
+    private void drawMapDebug(
+        Graphics2D graphics,
+        MapDebugView mapDebugView,
+        GridDefinition grid,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        mapDebugView.buildableCells().forEach(cell ->
+            drawGridCellOverlay(graphics, cell.x(), cell.z(), grid.cellSize(), new Color(68, 134, 88, 64), camera, width, height)
+        );
+        mapDebugView.blockedCells().forEach(cell ->
+            drawGridCellOverlay(graphics, cell.x(), cell.z(), grid.cellSize(), new Color(172, 66, 66, 96), camera, width, height)
+        );
+
+        graphics.setStroke(new BasicStroke(3f));
+        graphics.setColor(new Color(240, 210, 104));
+        List<Vector3> waypoints = mapDebugView.path().waypoints();
+        for (int i = 0; i < waypoints.size() - 1; i++) {
+            drawLine(graphics, lift(waypoints.get(i), 0.05), lift(waypoints.get(i + 1), 0.05), camera, width, height);
+        }
+    }
+
+    private void drawGridCellOverlay(
+        Graphics2D graphics,
+        int cellX,
+        int cellZ,
+        double cellSize,
+        Color color,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        double centerX = cellX * cellSize;
+        double centerZ = cellZ * cellSize;
+        double half = cellSize * 0.5;
+
+        ProjectedPoint p1 = project(new Vector3(centerX - half, 0.02, centerZ - half), camera, width, height);
+        ProjectedPoint p2 = project(new Vector3(centerX + half, 0.02, centerZ - half), camera, width, height);
+        ProjectedPoint p3 = project(new Vector3(centerX + half, 0.02, centerZ + half), camera, width, height);
+        ProjectedPoint p4 = project(new Vector3(centerX - half, 0.02, centerZ + half), camera, width, height);
+
+        if (!p1.visible || !p2.visible || !p3.visible || !p4.visible) {
+            return;
+        }
+
+        int[] xs = new int[] { p1.x, p2.x, p3.x, p4.x };
+        int[] ys = new int[] { p1.y, p2.y, p3.y, p4.y };
+        graphics.setColor(color);
+        graphics.fillPolygon(xs, ys, 4);
+        graphics.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 180));
+        graphics.drawPolygon(xs, ys, 4);
+    }
+
+    private void drawEnemies(
+        Graphics2D graphics,
+        List<EnemyView> enemies,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        graphics.setColor(new Color(206, 94, 70));
+        for (EnemyView enemy : enemies) {
+            drawEnemy(graphics, enemy, camera, width, height);
+        }
+    }
+
+    private void drawEnemy(
+        Graphics2D graphics,
+        EnemyView enemy,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        Vector3 center3d = lift(enemy.position(), 0.2);
+        ProjectedPoint center = project(center3d, camera, width, height);
+        if (!center.visible) {
+            return;
+        }
+
+        ProjectedPoint radiusPoint = project(
+            lift(enemy.position().add(new Vector3(enemy.radius(), 0.0, 0.0)), 0.2),
+            camera,
+            width,
+            height
+        );
+        if (!radiusPoint.visible) {
+            return;
+        }
+
+        int radiusPixels = Math.max(3, Math.abs(radiusPoint.x - center.x));
+        int diameter = radiusPixels * 2;
+
+        graphics.fillOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+        graphics.setColor(new Color(245, 214, 178));
+        graphics.drawOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+        graphics.setColor(new Color(206, 94, 70));
+    }
+
+    private Vector3 lift(Vector3 point, double yOffset) {
+        return new Vector3(point.x(), point.y() + yOffset, point.z());
     }
 
     private void drawLine(

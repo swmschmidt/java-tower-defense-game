@@ -12,6 +12,11 @@ public record AppConfig(
     Vector3 cameraTarget,
     double cameraFovDegrees,
     int gridHalfSize,
-    double gridCellSize
+    double gridCellSize,
+    String mapContentPath,
+    String enemyContentPath,
+    String spawnEnemyId,
+    double spawnIntervalSeconds,
+    int spawnMaxCount
 ) {
 }
