@@ -30,6 +30,8 @@ The project now provides:
 - Action menu buttons rendered from data-driven action definitions
 - Hotkey binding support for action dispatch
 - HUD button and hotkey dispatch routed into command flow (`UiActionCommand`)
+- Keyboard + mouse listeners bound to the render surface with startup focus request to keep hotkeys active during gameplay
+- Viewport-aware input routing so HUD hit tests and screen-to-world picking use live render surface dimensions
 - Config-driven action modes (`move`, `build`, `sell`, `cancel`) with optional per-action tower binding
 - Builder-driven tower construction through build actions and right-click world targeting
 - Build placement validation (buildable cell, blocked/occupied checks, builder range, and gold checks)
@@ -73,6 +75,10 @@ Controls:
 - `X`: switch to sell action (selected tower)
 - `C`: cancel action, revert to default
 - Window close button: close the game
+
+Interaction reliability note:
+
+- Hotkeys (`M/B/X/C`) are captured from the render surface. If focus is ever lost (for example after interacting with another app), click inside the game view once and continue.
 
 Gameplay note:
 

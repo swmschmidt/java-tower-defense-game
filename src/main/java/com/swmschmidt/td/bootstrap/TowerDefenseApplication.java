@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import javax.swing.SwingUtilities;
 
 public final class TowerDefenseApplication {
 
@@ -103,9 +104,10 @@ public final class TowerDefenseApplication {
             config.windowWidth(),
             config.windowHeight()
         );
-        window.frame().addKeyListener(input);
+        window.renderSurface().addKeyListener(input);
         window.renderSurface().addMouseListener(input);
         window.showWindow();
+        SwingUtilities.invokeLater(() -> window.renderSurface().requestFocusInWindow());
 
         FrameRenderer renderer = new SoftwareGridRenderer();
         AtomicBoolean running = new AtomicBoolean(true);
@@ -116,10 +118,13 @@ public final class TowerDefenseApplication {
             config.framesPerSecond(),
             () -> {
                 input.poll();
+                int viewportWidth = resolveViewportDimension(window.renderSurface().getWidth(), config.windowWidth());
+                int viewportHeight = resolveViewportDimension(window.renderSurface().getHeight(), config.windowHeight());
                 routeHudAndWorldInput(
                     input,
                     sceneManager.captureView(),
-                    config,
+                    viewportWidth,
+                    viewportHeight,
                     worldRayPicker,
                     camera,
                     hudLayout,
@@ -135,11 +140,13 @@ public final class TowerDefenseApplication {
                 }
             },
             () -> {
+                int viewportWidth = resolveViewportDimension(window.renderSurface().getWidth(), config.windowWidth());
+                int viewportHeight = resolveViewportDimension(window.renderSurface().getHeight(), config.windowHeight());
                 BufferedImage frame = renderer.render(
                     sceneManager.captureView(),
                     camera,
-                    config.windowWidth(),
-                    config.windowHeight()
+                    viewportWidth,
+                    viewportHeight
                 );
                 window.present(frame);
             },
@@ -156,7 +163,8 @@ public final class TowerDefenseApplication {
     private void routeHudAndWorldInput(
         SwingInputService input,
         WorldView currentView,
-        AppConfig config,
+        int viewportWidth,
+        int viewportHeight,
         ScreenToWorldRayPicker worldRayPicker,
         FixedCamera camera,
         LowerHudLayout hudLayout,
@@ -170,20 +178,20 @@ public final class TowerDefenseApplication {
             String actionId = hudLayout.resolveActionIdAt(
                 click.x(),
                 click.y(),
-                config.windowWidth(),
-                config.windowHeight(),
+                viewportWidth,
+                viewportHeight,
                 currentView.hudActions()
             );
             if (actionId != null) {
                 hudActionQueue.add(Optional.of(actionId));
-            } else if (!hudLayout.containsHud(click.x(), click.y(), config.windowWidth(), config.windowHeight())) {
-                selectWorldPointQueue.add(pickWorldPoint(click, worldRayPicker, camera, config));
+            } else if (!hudLayout.containsHud(click.x(), click.y(), viewportWidth, viewportHeight)) {
+                selectWorldPointQueue.add(pickWorldPoint(click, worldRayPicker, camera, viewportWidth, viewportHeight));
             }
         });
 
         input.consumeContextCommandRequested().ifPresent(click -> {
-            if (!hudLayout.containsHud(click.x(), click.y(), config.windowWidth(), config.windowHeight())) {
-                contextWorldPointQueue.add(pickWorldPoint(click, worldRayPicker, camera, config));
+            if (!hudLayout.containsHud(click.x(), click.y(), viewportWidth, viewportHeight)) {
+                contextWorldPointQueue.add(pickWorldPoint(click, worldRayPicker, camera, viewportWidth, viewportHeight));
             }
         });
 
@@ -199,14 +207,19 @@ public final class TowerDefenseApplication {
         PointerClick click,
         ScreenToWorldRayPicker worldRayPicker,
         FixedCamera camera,
-        AppConfig config
+        int viewportWidth,
+        int viewportHeight
     ) {
         return worldRayPicker.pickGround(
             click.x(),
             click.y(),
-            config.windowWidth(),
-            config.windowHeight(),
+            viewportWidth,
+            viewportHeight,
             camera
         );
+    }
+
+    private int resolveViewportDimension(int measuredValue, int fallbackValue) {
+        return measuredValue > 0 ? measuredValue : fallbackValue;
     }
 }

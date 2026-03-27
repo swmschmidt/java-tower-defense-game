@@ -56,7 +56,7 @@ public final class SwingGameWindow {
         Runnable initializer = () -> {
             JFrame frame = new JFrame(title);
             frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-            frame.setPreferredSize(new Dimension(width, height));
+            panel.setPreferredSize(new Dimension(width, height));
             frame.setMinimumSize(new Dimension(640, 360));
             frame.setContentPane(panel);
             frame.pack();

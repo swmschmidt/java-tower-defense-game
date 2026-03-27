@@ -82,4 +82,6 @@
 - Build preview state provides placement feedback (valid/invalid).
 - Sell refund ratios are per-tower and data-driven.
 - Lower HUD rendering and hit-testing are isolated in presentation classes (`SoftwareGridRenderer`, `LowerHudLayout`).
+- Bootstrap now binds keyboard and mouse listeners to the render surface and requests focus after show for stable in-game hotkeys.
+- Bootstrap routes HUD clicks and world picking using live render-surface viewport dimensions to keep interaction aligned with the fixed camera projection.
 - Scene state exposure through `WorldView` keeps simulation fully decoupled from rendering.
