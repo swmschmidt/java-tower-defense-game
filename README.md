@@ -2,7 +2,7 @@
 
 Incremental playable foundation for a 3D tower defense game in Java 25.
 
-## Current Step Scope (Step 02)
+## Current Step Scope (Step 03)
 
 The project now provides:
 
@@ -15,12 +15,18 @@ The project now provides:
 - Input abstraction with exit handling (`Esc`)
 - Config loading structure (`src/main/resources/config/app.properties` + optional override file)
 - Data-driven map loading from content (`content/base/maps/*.properties`)
-- Data-driven enemy definitions from content (`content/base/enemies/*.properties`)
+- Data-driven enemy definitions from content (`content/base/enemies/*.properties`) including health and kill reward
+- Data-driven tower definitions from content (`content/base/towers/*.properties`)
 - Deterministic enemy spawning and movement along map path waypoints
-- Placeholder enemy rendering and map debug overlays (path, buildable and blocked cells)
-- Lose trigger when an enemy reaches the goal
+- Basic tower placement (`T`) on buildable cells
+- Target acquisition and attack cadence for placed towers
+- Extensible attack abstraction with initial `hitscan` mode
+- Enemy health, death handling, and gold reward on kill
+- Placeholder HUD for gold and lives
+- Placeholder rendering for towers, enemies, and map debug overlays (path, buildable and blocked cells)
+- Lose trigger when player lives reach zero
 
-Still intentionally out of scope: tower combat, economy, selection UI, builder commands, upgrades, audio, and networking.
+Still intentionally out of scope: final UI layout, builder movement, upgrades, audio, and networking.
 
 ## Run
 
@@ -39,12 +45,16 @@ mvn exec:java
 Controls:
 
 - `Esc`: close the game
+- `T`: place one default tower on the next available buildable cell
 - Window close button: close the game
 
 Gameplay note:
 
 - Enemies automatically spawn and walk along the configured map path.
-- The match enters defeat state when any enemy reaches the path end.
+- Placed towers automatically attack enemies in range.
+- Player gains gold when towers kill enemies.
+- Player loses 1 life for each enemy that reaches the goal.
+- The match enters defeat state when lives reach zero.
 
 ## Config
 
@@ -62,9 +72,13 @@ Key content/config properties for this step:
 
 - `content.map_file`
 - `content.enemies_file`
+- `content.towers_file`
 - `gameplay.spawn.enemy_id`
 - `gameplay.spawn.interval_seconds`
 - `gameplay.spawn.max_count`
+- `gameplay.default_tower_id`
+- `gameplay.starting_gold`
+- `gameplay.starting_lives`
 
 ## Content Bootstrap
 
@@ -77,3 +91,4 @@ Current content files used by gameplay:
 
 - `content/base/maps/sandbox-map.properties`
 - `content/base/enemies/base-enemies.properties`
+- `content/base/towers/base-towers.properties`

@@ -55,9 +55,13 @@ public final class AppConfigLoader {
             doubleProperty(properties, "grid.cell_size"),
             required(properties, "content.map_file"),
             required(properties, "content.enemies_file"),
+            required(properties, "content.towers_file"),
             required(properties, "gameplay.spawn.enemy_id"),
             doubleProperty(properties, "gameplay.spawn.interval_seconds"),
-            intProperty(properties, "gameplay.spawn.max_count")
+            intProperty(properties, "gameplay.spawn.max_count"),
+            required(properties, "gameplay.default_tower_id"),
+            intProperty(properties, "gameplay.starting_gold"),
+            intProperty(properties, "gameplay.starting_lives")
         );
     }
 

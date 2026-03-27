@@ -4,6 +4,7 @@ import com.swmschmidt.td.core.math.Vector3;
 import com.swmschmidt.td.core.scene.EnemyView;
 import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.MapDebugView;
+import com.swmschmidt.td.core.scene.TowerView;
 import com.swmschmidt.td.core.scene.WorldView;
 import com.swmschmidt.td.infrastructure.rendering.api.FrameRenderer;
 import com.swmschmidt.td.infrastructure.rendering.camera.FixedCamera;
@@ -30,7 +31,9 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         if (worldView.mapDebugView() != null) {
             drawMapDebug(graphics, worldView.mapDebugView(), worldView.grid(), camera, width, height);
         }
+        drawTowers(graphics, worldView.towers(), camera, width, height);
         drawEnemies(graphics, worldView.enemies(), camera, width, height);
+        drawHud(graphics, worldView.playerGold(), worldView.playerLives());
         if (worldView.defeatTriggered()) {
             drawDefeatLabel(graphics, width);
         }
@@ -49,6 +52,17 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         GradientPaint sky = new GradientPaint(0, 0, new Color(35, 47, 74), 0, height, new Color(17, 22, 33));
         graphics.setPaint(sky);
         graphics.fillRect(0, 0, width, height);
+    }
+
+    private void drawHud(Graphics2D graphics, int gold, int lives) {
+        graphics.setColor(new Color(16, 20, 30, 170));
+        graphics.fillRoundRect(14, 14, 260, 76, 12, 12);
+        graphics.setColor(new Color(224, 228, 235));
+        graphics.setFont(graphics.getFont().deriveFont(18f));
+        graphics.drawString("Gold: " + gold, 24, 42);
+        graphics.drawString("Lives: " + lives, 24, 64);
+        graphics.setFont(graphics.getFont().deriveFont(14f));
+        graphics.drawString("Press T to place tower", 24, 84);
     }
 
     private void drawGroundGrid(Graphics2D graphics, GridDefinition grid, FixedCamera camera, int width, int height) {
@@ -177,6 +191,40 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         graphics.setColor(new Color(206, 94, 70));
         for (EnemyView enemy : enemies) {
             drawEnemy(graphics, enemy, camera, width, height);
+        }
+    }
+
+    private void drawTowers(
+        Graphics2D graphics,
+        List<TowerView> towers,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        graphics.setColor(new Color(93, 132, 214));
+        for (TowerView tower : towers) {
+            Vector3 position = lift(tower.position(), 0.22);
+            ProjectedPoint center = project(position, camera, width, height);
+            if (!center.visible) {
+                continue;
+            }
+
+            ProjectedPoint radiusPoint = project(
+                lift(tower.position().add(new Vector3(0.35, 0.0, 0.0)), 0.22),
+                camera,
+                width,
+                height
+            );
+            if (!radiusPoint.visible) {
+                continue;
+            }
+
+            int radiusPixels = Math.max(4, Math.abs(radiusPoint.x - center.x));
+            int diameter = radiusPixels * 2;
+            graphics.fillOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+            graphics.setColor(new Color(195, 217, 255));
+            graphics.drawOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+            graphics.setColor(new Color(93, 132, 214));
         }
     }
 

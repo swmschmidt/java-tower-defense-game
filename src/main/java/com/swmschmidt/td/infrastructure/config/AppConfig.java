@@ -15,8 +15,12 @@ public record AppConfig(
     double gridCellSize,
     String mapContentPath,
     String enemyContentPath,
+    String towerContentPath,
     String spawnEnemyId,
     double spawnIntervalSeconds,
-    int spawnMaxCount
+    int spawnMaxCount,
+    String defaultTowerId,
+    int startingGold,
+    int startingLives
 ) {
 }

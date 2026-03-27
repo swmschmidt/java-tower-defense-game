@@ -19,6 +19,7 @@
 |   |   |-- projectiles/
 |   |   |-- textures/
 |   |   |-- towers/
+|   |   |   `-- base-towers.properties
 |   |   |-- ui/
 |   |   |-- units/
 |   |   |-- upgrades/
@@ -32,8 +33,10 @@
 |   |   |   |-- bootstrap/
 |   |   |   |-- core/
 |   |   |   |   |-- gameplay/
+|   |   |   |   |   |-- combat/
 |   |   |   |   |   |-- enemy/
 |   |   |   |   |   `-- map/
+|   |   |   |   |   `-- tower/
 |   |   |   |   |-- gameloop/
 |   |   |   |   |-- input/
 |   |   |   |   |-- math/
@@ -62,7 +65,7 @@
 
 ## Notes
 
-- The current implementation targets Step 02.
+- The current implementation targets Step 03.
 - Rendering is isolated behind `FrameRenderer`.
 - Scene state is exposed through `WorldView` to keep simulation decoupled from rendering.
-- Map and enemy definitions are loaded from external content files.
+- Map, enemy, and tower definitions are loaded from external content files.

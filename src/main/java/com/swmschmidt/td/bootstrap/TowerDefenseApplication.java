@@ -3,6 +3,7 @@ package com.swmschmidt.td.bootstrap;
 import com.swmschmidt.td.application.scene.SandboxScene;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
 import com.swmschmidt.td.core.gameplay.map.GameplayMap;
+import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
 import com.swmschmidt.td.core.gameloop.GameLoop;
 import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.SceneManager;
@@ -10,6 +11,7 @@ import com.swmschmidt.td.infrastructure.config.AppConfig;
 import com.swmschmidt.td.infrastructure.config.AppConfigLoader;
 import com.swmschmidt.td.infrastructure.content.EnemyContentLoader;
 import com.swmschmidt.td.infrastructure.content.MapContentLoader;
+import com.swmschmidt.td.infrastructure.content.TowerContentLoader;
 import com.swmschmidt.td.infrastructure.input.SwingInputService;
 import com.swmschmidt.td.infrastructure.rendering.api.FrameRenderer;
 import com.swmschmidt.td.infrastructure.rendering.camera.FixedCamera;
@@ -28,15 +30,23 @@ public final class TowerDefenseApplication {
 
         GameplayMap gameplayMap = new MapContentLoader().load(Path.of(config.mapContentPath()));
         EnemyCatalog enemyCatalog = new EnemyContentLoader().load(Path.of(config.enemyContentPath()));
+        TowerCatalog towerCatalog = new TowerContentLoader().load(Path.of(config.towerContentPath()));
+
+        SwingInputService input = new SwingInputService();
 
         SceneManager sceneManager = new SceneManager(
             new SandboxScene(
                 grid,
                 gameplayMap,
                 enemyCatalog,
+                towerCatalog,
                 config.spawnEnemyId(),
                 config.spawnIntervalSeconds(),
-                config.spawnMaxCount()
+                config.spawnMaxCount(),
+                config.defaultTowerId(),
+                config.startingGold(),
+                config.startingLives(),
+                input::consumePlaceTowerRequested
             )
         );
 
@@ -51,7 +61,6 @@ public final class TowerDefenseApplication {
             config.windowWidth(),
             config.windowHeight()
         );
-        SwingInputService input = new SwingInputService();
         window.frame().addKeyListener(input);
         window.showWindow();
 
