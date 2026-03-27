@@ -1,6 +1,7 @@
 package com.swmschmidt.td.infrastructure.rendering.swing;
 
 import com.swmschmidt.td.core.math.Vector3;
+import com.swmschmidt.td.core.scene.BuilderView;
 import com.swmschmidt.td.core.scene.EnemyView;
 import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.MapDebugView;
@@ -32,6 +33,7 @@ public final class SoftwareGridRenderer implements FrameRenderer {
             drawMapDebug(graphics, worldView.mapDebugView(), worldView.grid(), camera, width, height);
         }
         drawTowers(graphics, worldView.towers(), camera, width, height);
+        drawBuilders(graphics, worldView.builders(), camera, width, height);
         drawEnemies(graphics, worldView.enemies(), camera, width, height);
         drawHud(
             graphics,
@@ -39,7 +41,9 @@ public final class SoftwareGridRenderer implements FrameRenderer {
             worldView.totalWaves(),
             worldView.matchState(),
             worldView.playerGold(),
-            worldView.playerLives()
+            worldView.playerLives(),
+            worldView.selectedEntityType(),
+            worldView.selectedEntityId()
         );
         if (worldView.defeatTriggered()) {
             drawDefeatLabel(graphics, width);
@@ -70,17 +74,31 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         graphics.fillRect(0, 0, width, height);
     }
 
-    private void drawHud(Graphics2D graphics, int currentWave, int totalWaves, String matchState, int gold, int lives) {
+    private void drawHud(
+        Graphics2D graphics,
+        int currentWave,
+        int totalWaves,
+        String matchState,
+        int gold,
+        int lives,
+        String selectedEntityType,
+        String selectedEntityId
+    ) {
         graphics.setColor(new Color(16, 20, 30, 170));
-        graphics.fillRoundRect(14, 14, 340, 112, 12, 12);
+        graphics.fillRoundRect(14, 14, 430, 128, 12, 12);
         graphics.setColor(new Color(224, 228, 235));
         graphics.setFont(graphics.getFont().deriveFont(16f));
         graphics.drawString("Wave: " + currentWave + " / " + totalWaves, 24, 38);
         graphics.drawString("State: " + matchState, 24, 58);
         graphics.drawString("Gold: " + gold, 24, 78);
         graphics.drawString("Lives: " + lives, 24, 98);
+        String selected = selectedEntityType.isBlank() || selectedEntityId.isBlank()
+            ? "none"
+            : selectedEntityType + "(" + selectedEntityId + ")";
+        graphics.drawString("Selected: " + selected, 24, 118);
         graphics.setFont(graphics.getFont().deriveFont(14f));
         graphics.drawString("Press T to place tower", 186, 98);
+        graphics.drawString("Left click: select | Right click: move selected builder", 186, 118);
     }
 
     private void drawGroundGrid(Graphics2D graphics, GridDefinition grid, FixedCamera camera, int width, int height) {
@@ -243,6 +261,47 @@ public final class SoftwareGridRenderer implements FrameRenderer {
             graphics.setColor(new Color(195, 217, 255));
             graphics.drawOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
             graphics.setColor(new Color(93, 132, 214));
+        }
+    }
+
+    private void drawBuilders(
+        Graphics2D graphics,
+        List<BuilderView> builders,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        for (BuilderView builder : builders) {
+            Vector3 position = lift(builder.position(), 0.2);
+            ProjectedPoint center = project(position, camera, width, height);
+            if (!center.visible) {
+                continue;
+            }
+
+            ProjectedPoint radiusPoint = project(
+                lift(builder.position().add(new Vector3(builder.selectionRadius(), 0.0, 0.0)), 0.2),
+                camera,
+                width,
+                height
+            );
+            if (!radiusPoint.visible) {
+                continue;
+            }
+
+            int radiusPixels = Math.max(4, Math.abs(radiusPoint.x - center.x));
+            int diameter = radiusPixels * 2;
+
+            graphics.setColor(new Color(96, 208, 164));
+            graphics.fillOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+            graphics.setColor(new Color(210, 255, 238));
+            graphics.drawOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+
+            if (builder.selected()) {
+                graphics.setColor(new Color(255, 242, 122));
+                int ringRadius = radiusPixels + 6;
+                int ringDiameter = ringRadius * 2;
+                graphics.drawOval(center.x - ringRadius, center.y - ringRadius, ringDiameter, ringDiameter);
+            }
         }
     }
 

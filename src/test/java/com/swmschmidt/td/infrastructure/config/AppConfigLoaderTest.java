@@ -20,10 +20,12 @@ class AppConfigLoaderTest {
         assertTrue(!config.mapContentPath().isBlank());
         assertTrue(!config.enemyContentPath().isBlank());
         assertTrue(!config.towerContentPath().isBlank());
+        assertTrue(!config.builderContentPath().isBlank());
         assertTrue(!config.waveContentPath().isBlank());
         assertTrue(config.preWaveDelaySeconds() >= 0.0);
         assertTrue(config.postWaveDelaySeconds() >= 0.0);
         assertTrue(!config.defaultTowerId().isBlank());
+        assertTrue(!config.defaultBuilderId().isBlank());
         assertTrue(config.startingGold() >= 0);
         assertTrue(config.startingLives() > 0);
     }

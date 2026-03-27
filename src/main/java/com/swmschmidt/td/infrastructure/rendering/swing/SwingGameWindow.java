@@ -32,6 +32,10 @@ public final class SwingGameWindow {
         return frame;
     }
 
+    public JPanel renderSurface() {
+        return renderPanel;
+    }
+
     public boolean isOpen() {
         return open.get();
     }
