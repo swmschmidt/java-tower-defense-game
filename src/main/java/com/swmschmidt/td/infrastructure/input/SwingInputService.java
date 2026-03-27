@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class SwingInputService extends KeyAdapter implements InputService {
     private final AtomicBoolean exitRequested = new AtomicBoolean(false);
+    private final AtomicBoolean placeTowerRequested = new AtomicBoolean(false);
 
     @Override
     public void poll() {
@@ -20,9 +21,18 @@ public final class SwingInputService extends KeyAdapter implements InputService 
     }
 
     @Override
+    public boolean consumePlaceTowerRequested() {
+        return placeTowerRequested.getAndSet(false);
+    }
+
+    @Override
     public void keyPressed(KeyEvent event) {
         if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
             exitRequested.set(true);
+            return;
+        }
+        if (event.getKeyCode() == KeyEvent.VK_T) {
+            placeTowerRequested.set(true);
         }
     }
 

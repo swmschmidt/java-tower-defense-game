@@ -1,7 +1,7 @@
 package com.swmschmidt.td.infrastructure.content;
 
-import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
-import com.swmschmidt.td.core.gameplay.enemy.EnemyDefinition;
+import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
+import com.swmschmidt.td.core.gameplay.tower.TowerDefinition;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,18 +11,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 
-public final class EnemyContentLoader {
+public final class TowerContentLoader {
 
-    public EnemyCatalog load(Path filePath) {
+    public TowerCatalog load(Path filePath) {
         Properties properties = new Properties();
         try (InputStream stream = Files.newInputStream(filePath)) {
             properties.load(stream);
         } catch (IOException exception) {
-            throw new IllegalStateException("Failed to load enemy content from " + filePath, exception);
+            throw new IllegalStateException("Failed to load tower content from " + filePath, exception);
         }
 
-        String[] ids = required(properties, "enemy.ids").split(";");
-        Map<String, EnemyDefinition> definitionsById = new LinkedHashMap<>();
+        String[] ids = required(properties, "tower.ids").split(";");
+        Map<String, TowerDefinition> definitionsById = new LinkedHashMap<>();
 
         for (String idToken : ids) {
             String id = idToken.trim();
@@ -30,18 +30,19 @@ public final class EnemyContentLoader {
                 continue;
             }
 
-            String prefix = "enemy." + id + ".";
-            EnemyDefinition definition = new EnemyDefinition(
+            String prefix = "tower." + id + ".";
+            TowerDefinition definition = new TowerDefinition(
                 id,
-                doubleProperty(properties, prefix + "speed_units_per_second"),
-                doubleProperty(properties, prefix + "radius"),
-                doubleProperty(properties, prefix + "max_health"),
-                intProperty(properties, prefix + "gold_reward")
+                doubleProperty(properties, prefix + "range_units"),
+                doubleProperty(properties, prefix + "damage_per_shot"),
+                doubleProperty(properties, prefix + "attacks_per_second"),
+                intProperty(properties, prefix + "cost_gold"),
+                required(properties, prefix + "attack_mode")
             );
             definitionsById.put(id, definition);
         }
 
-        return new EnemyCatalog(definitionsById);
+        return new TowerCatalog(definitionsById);
     }
 
     private double doubleProperty(Properties properties, String key) {
@@ -55,7 +56,7 @@ public final class EnemyContentLoader {
     private String required(Properties properties, String key) {
         String value = properties.getProperty(key);
         if (value == null || value.isBlank()) {
-            throw new IllegalStateException("Missing required enemy property: " + key);
+            throw new IllegalStateException("Missing required tower property: " + key);
         }
         return value;
     }

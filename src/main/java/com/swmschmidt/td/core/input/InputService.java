@@ -4,4 +4,6 @@ public interface InputService {
     void poll();
 
     boolean isExitRequested();
+
+    boolean consumePlaceTowerRequested();
 }
