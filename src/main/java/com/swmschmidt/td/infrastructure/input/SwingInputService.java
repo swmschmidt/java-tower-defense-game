@@ -16,6 +16,7 @@ public final class SwingInputService extends KeyAdapter implements InputService,
     private final AtomicBoolean placeTowerRequested = new AtomicBoolean(false);
     private final AtomicReference<PointerClick> selectRequested = new AtomicReference<>();
     private final AtomicReference<PointerClick> contextCommandRequested = new AtomicReference<>();
+    private final AtomicReference<String> hudHotkeyRequested = new AtomicReference<>();
 
     @Override
     public void poll() {
@@ -43,6 +44,11 @@ public final class SwingInputService extends KeyAdapter implements InputService,
     }
 
     @Override
+    public Optional<String> consumeHudHotkeyRequested() {
+        return Optional.ofNullable(hudHotkeyRequested.getAndSet(null));
+    }
+
+    @Override
     public void keyPressed(KeyEvent event) {
         if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
             exitRequested.set(true);
@@ -50,6 +56,12 @@ public final class SwingInputService extends KeyAdapter implements InputService,
         }
         if (event.getKeyCode() == KeyEvent.VK_T) {
             placeTowerRequested.set(true);
+            return;
+        }
+
+        char keyChar = event.getKeyChar();
+        if (!Character.isISOControl(keyChar)) {
+            hudHotkeyRequested.set(String.valueOf(Character.toUpperCase(keyChar)));
         }
     }
 

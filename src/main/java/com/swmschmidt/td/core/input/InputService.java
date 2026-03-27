@@ -12,4 +12,6 @@ public interface InputService {
     Optional<PointerClick> consumeSelectRequested();
 
     Optional<PointerClick> consumeContextCommandRequested();
+
+    Optional<String> consumeHudHotkeyRequested();
 }

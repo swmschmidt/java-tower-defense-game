@@ -57,11 +57,13 @@ public final class AppConfigLoader {
             required(properties, "content.enemies_file"),
             required(properties, "content.towers_file"),
             required(properties, "content.builders_file"),
+            required(properties, "content.ui_actions_file"),
             required(properties, "content.waves_file"),
             doubleProperty(properties, "gameplay.pre_wave_delay_seconds"),
             doubleProperty(properties, "gameplay.post_wave_delay_seconds"),
             required(properties, "gameplay.default_tower_id"),
             required(properties, "gameplay.default_builder_id"),
+            required(properties, "gameplay.default_hud_action_id"),
             intProperty(properties, "gameplay.starting_gold"),
             intProperty(properties, "gameplay.starting_lives")
         );

@@ -17,11 +17,13 @@ public record AppConfig(
     String enemyContentPath,
     String towerContentPath,
     String builderContentPath,
+    String uiActionContentPath,
     String waveContentPath,
     double preWaveDelaySeconds,
     double postWaveDelaySeconds,
     String defaultTowerId,
     String defaultBuilderId,
+    String defaultHudActionId,
     int startingGold,
     int startingLives
 ) {

@@ -2,7 +2,7 @@
 
 Incremental playable foundation for a 3D tower defense game in Java 25.
 
-## Current Step Scope (Step 05)
+## Current Step Scope (Step 06)
 
 The project now provides:
 
@@ -22,22 +22,26 @@ The project now provides:
 - Wave spawner service driven by configured per-wave spawn groups
 - Centralized match state machine with `PRE_WAVE`, `IN_WAVE`, `POST_WAVE`, `VICTORY`, and `DEFEAT`
 - Basic tower placement (`T`) on buildable cells
-- Selection system for world entities (currently builder and tower hit test hooks)
+- Selection system for world entities (builder and tower hit test hooks)
 - Runtime builder unit instance with data-driven spawn and movement speed
 - Right-click movement through a command queue (no direct input-to-gameplay mutation)
 - Serializable-friendly command abstractions for selection and builder movement
 - World picking infrastructure (screen-to-ground ray pick)
+- Permanent lower HUD with three sections (minimap placeholder, selected-unit panel, action panel)
+- Action menu buttons rendered from data-driven action definitions
+- Hotkey binding support for action dispatch
+- HUD button and hotkey dispatch routed into command flow (`UiActionCommand`)
 - Target acquisition and attack cadence for placed towers
 - Extensible attack abstraction with initial `hitscan` mode
 - Enemy health, death handling, and gold reward on kill
 - Economy and survival tracking with gold and lives
-- Placeholder HUD for wave, match state, economy, lives, and selected entity info
+- Top status HUD plus permanent RTS-style lower HUD
 - Placeholder rendering for towers, enemies, and map debug overlays (path, buildable and blocked cells)
 - Builder placeholder rendering with selection ring visualization
 - Win condition when all waves are cleared
 - Lose trigger when player lives reach zero
 
-Still intentionally out of scope: final lower HUD layout, build menus, upgrades, audio, and networking.
+Still intentionally out of scope: full minimap features, build placement flow, selling, upgrades, audio, and networking.
 
 ## Run
 
@@ -59,6 +63,7 @@ Controls:
 - `T`: place one default tower on the next available buildable cell
 - `Left Click`: select world entity
 - `Right Click`: issue move command for selected builder
+- `M`, `B`, `C`: action hotkeys (data-driven from UI action content)
 - Window close button: close the game
 
 Gameplay note:
@@ -88,11 +93,13 @@ Key content/config properties for this step:
 - `content.enemies_file`
 - `content.towers_file`
 - `content.builders_file`
+- `content.ui_actions_file`
 - `content.waves_file`
 - `gameplay.pre_wave_delay_seconds`
 - `gameplay.post_wave_delay_seconds`
 - `gameplay.default_tower_id`
 - `gameplay.default_builder_id`
+- `gameplay.default_hud_action_id`
 - `gameplay.starting_gold`
 - `gameplay.starting_lives`
 
@@ -109,4 +116,5 @@ Current content files used by gameplay:
 - `content/base/enemies/base-enemies.properties`
 - `content/base/towers/base-towers.properties`
 - `content/base/units/base-builders.properties`
+- `content/base/ui/base-actions.properties`
 - `content/base/waves/sandbox-waves.properties`
