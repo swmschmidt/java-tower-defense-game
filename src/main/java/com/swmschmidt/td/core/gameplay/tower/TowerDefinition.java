@@ -6,7 +6,8 @@ public record TowerDefinition(
     double damagePerShot,
     double attacksPerSecond,
     int costGold,
-    String attackMode
+    String attackMode,
+    double sellRefundRatio
 ) {
     public TowerDefinition {
         if (id == null || id.isBlank()) {
@@ -26,6 +27,9 @@ public record TowerDefinition(
         }
         if (attackMode == null || attackMode.isBlank()) {
             throw new IllegalArgumentException("Tower attackMode must not be blank");
+        }
+        if (sellRefundRatio < 0.0 || sellRefundRatio > 1.0) {
+            throw new IllegalArgumentException("Tower sellRefundRatio must be between 0.0 and 1.0");
         }
     }
 }

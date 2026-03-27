@@ -33,6 +33,7 @@ public final class BuilderContentLoader {
                 id,
                 Double.parseDouble(required(properties, prefix + "move_speed_units_per_second")),
                 Double.parseDouble(required(properties, prefix + "selection_radius")),
+                Double.parseDouble(required(properties, prefix + "build_range_units")),
                 Double.parseDouble(required(properties, prefix + "spawn_x")),
                 Double.parseDouble(required(properties, prefix + "spawn_z"))
             );

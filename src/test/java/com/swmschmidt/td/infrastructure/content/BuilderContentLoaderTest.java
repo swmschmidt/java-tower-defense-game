@@ -21,10 +21,12 @@ class BuilderContentLoaderTest {
             builder.ids=builder;worker
             builder.builder.move_speed_units_per_second=4.0
             builder.builder.selection_radius=0.4
+            builder.builder.build_range_units=3.5
             builder.builder.spawn_x=-12.0
             builder.builder.spawn_z=-10.0
             builder.worker.move_speed_units_per_second=3.2
             builder.worker.selection_radius=0.35
+            builder.worker.build_range_units=2.2
             builder.worker.spawn_x=2.0
             builder.worker.spawn_z=3.0
             """
@@ -35,5 +37,6 @@ class BuilderContentLoaderTest {
         assertEquals(2, catalog.definitionsById().size());
         assertEquals(3.2, catalog.required("worker").moveSpeedUnitsPerSecond());
         assertEquals(-10.0, catalog.required("builder").spawnZ());
+        assertEquals(2.2, catalog.required("worker").buildRangeUnits());
     }
 }

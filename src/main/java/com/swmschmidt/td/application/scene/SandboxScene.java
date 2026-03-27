@@ -3,39 +3,42 @@ package com.swmschmidt.td.application.scene;
 import com.swmschmidt.td.core.gameplay.builder.BuilderCatalog;
 import com.swmschmidt.td.core.gameplay.builder.BuilderDefinition;
 import com.swmschmidt.td.core.gameplay.builder.BuilderUnitInstance;
+import com.swmschmidt.td.core.gameplay.command.BuildTowerCommand;
 import com.swmschmidt.td.core.gameplay.command.GameCommand;
 import com.swmschmidt.td.core.gameplay.command.MoveBuilderCommand;
 import com.swmschmidt.td.core.gameplay.command.SelectEntityCommand;
+import com.swmschmidt.td.core.gameplay.command.SellTowerCommand;
 import com.swmschmidt.td.core.gameplay.command.UiActionCommand;
-import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
-import com.swmschmidt.td.core.gameplay.enemy.EnemyInstance;
 import com.swmschmidt.td.core.gameplay.combat.HitscanAttackResolver;
 import com.swmschmidt.td.core.gameplay.combat.TowerCombatSystem;
-import com.swmschmidt.td.core.gameplay.match.MatchPhase;
-import com.swmschmidt.td.core.gameplay.match.MatchStateMachine;
+import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
+import com.swmschmidt.td.core.gameplay.enemy.EnemyInstance;
 import com.swmschmidt.td.core.gameplay.map.GameplayMap;
 import com.swmschmidt.td.core.gameplay.map.GridCell;
+import com.swmschmidt.td.core.gameplay.match.MatchPhase;
+import com.swmschmidt.td.core.gameplay.match.MatchStateMachine;
 import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
 import com.swmschmidt.td.core.gameplay.tower.TowerDefinition;
 import com.swmschmidt.td.core.gameplay.tower.TowerInstance;
 import com.swmschmidt.td.core.gameplay.uiaction.UiActionCatalog;
 import com.swmschmidt.td.core.gameplay.uiaction.UiActionDefinition;
+import com.swmschmidt.td.core.gameplay.uiaction.UiActionMode;
 import com.swmschmidt.td.core.gameplay.wave.WaveCatalog;
 import com.swmschmidt.td.core.gameplay.wave.WaveDefinition;
 import com.swmschmidt.td.core.gameplay.wave.WaveSpawnerService;
-import com.swmschmidt.td.core.scene.GridDefinition;
-import com.swmschmidt.td.core.scene.MapDebugView;
+import com.swmschmidt.td.core.math.Vector3;
+import com.swmschmidt.td.core.scene.BuildPreviewView;
 import com.swmschmidt.td.core.scene.BuilderView;
 import com.swmschmidt.td.core.scene.EnemyView;
+import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.HudActionView;
+import com.swmschmidt.td.core.scene.MapDebugView;
 import com.swmschmidt.td.core.scene.Scene;
 import com.swmschmidt.td.core.scene.TowerView;
 import com.swmschmidt.td.core.scene.WorldView;
-import com.swmschmidt.td.core.math.Vector3;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -72,7 +75,10 @@ public final class SandboxScene implements Scene {
     private String selectedEntityType;
     private String selectedEntityId;
     private String activeHudActionId;
+    private String actionFeedbackMessage;
+    private BuildPreviewState buildPreviewState;
     private long simulationTick;
+    private long towerSequence;
     private int playerGold;
     private int playerLives;
 
@@ -121,7 +127,10 @@ public final class SandboxScene implements Scene {
         this.selectedEntityType = "";
         this.selectedEntityId = "";
         this.activeHudActionId = resolveFallbackActionId();
+        this.actionFeedbackMessage = "";
+        this.buildPreviewState = null;
         this.simulationTick = 0L;
+        this.towerSequence = 0L;
         this.playerGold = startingGold;
         this.playerLives = startingLives;
         this.towerCombatSystem = new TowerCombatSystem(List.of(new HitscanAttackResolver()));
@@ -148,11 +157,16 @@ public final class SandboxScene implements Scene {
         simulationTick++;
 
         enqueueInputCommands();
-        processPendingCommands();
-
         if (placeTowerRequested.getAsBoolean()) {
-            placeDefaultTowerAtNextCell();
+            pendingCommands.add(new BuildTowerCommand(
+                "local",
+                simulationTick,
+                builderUnit.instanceId(),
+                defaultTowerId,
+                builderUnit.position()
+            ));
         }
+        processPendingCommands();
 
         updateMatchFlow(deltaSeconds);
 
@@ -186,17 +200,33 @@ public final class SandboxScene implements Scene {
         });
 
         contextWorldPointRequested.get().ifPresent(worldPoint -> {
-            if (
-                "move".equals(activeHudActionId)
-                    && "builder".equals(selectedEntityType)
-                    && builderUnit.instanceId().equals(selectedEntityId)
-            ) {
+            UiActionDefinition activeAction = currentActiveAction();
+            if (activeAction == null) {
+                return;
+            }
+            if (activeAction.mode() == UiActionMode.MOVE && isSelectedBuilder()) {
                 pendingCommands.add(new MoveBuilderCommand(
                     "local",
                     simulationTick,
                     builderUnit.instanceId(),
                     new Vector3(worldPoint.x(), 0.0, worldPoint.z())
                 ));
+                return;
+            }
+            if (activeAction.mode() == UiActionMode.BUILD && isSelectedBuilder()) {
+                updateBuildPreview(activeAction.towerId(), worldPoint);
+                pendingCommands.add(new BuildTowerCommand(
+                    "local",
+                    simulationTick,
+                    builderUnit.instanceId(),
+                    activeAction.towerId(),
+                    worldPoint
+                ));
+                return;
+            }
+            if (activeAction.mode() == UiActionMode.SELL && "tower".equals(selectedEntityType)) {
+                String towerInstanceId = resolveSellTargetTowerId(worldPoint);
+                pendingCommands.add(new SellTowerCommand("local", simulationTick, towerInstanceId));
             }
         });
 
@@ -216,8 +246,16 @@ public final class SandboxScene implements Scene {
                 selectedEntityType = selectEntityCommand.entityType();
                 selectedEntityId = selectEntityCommand.entityId();
                 activeHudActionId = resolveFallbackActionId();
+                actionFeedbackMessage = "";
+                if (!isBuildActionActive()) {
+                    buildPreviewState = null;
+                }
             } else if (command instanceof MoveBuilderCommand moveBuilderCommand) {
                 applyMoveBuilderCommand(moveBuilderCommand);
+            } else if (command instanceof BuildTowerCommand buildTowerCommand) {
+                applyBuildTowerCommand(buildTowerCommand);
+            } else if (command instanceof SellTowerCommand sellTowerCommand) {
+                applySellTowerCommand(sellTowerCommand);
             } else if (command instanceof UiActionCommand uiActionCommand) {
                 applyUiActionCommand(uiActionCommand);
             }
@@ -226,9 +264,21 @@ public final class SandboxScene implements Scene {
 
     private void applyUiActionCommand(UiActionCommand command) {
         if (!isActionAvailableForCurrentSelection(command.actionId())) {
+            actionFeedbackMessage = "Action unavailable for the current selection";
             return;
         }
         activeHudActionId = command.actionId();
+        UiActionDefinition definition = currentActiveAction();
+        if (definition != null && definition.mode() == UiActionMode.CANCEL) {
+            activeHudActionId = resolveFallbackActionId();
+            buildPreviewState = null;
+            actionFeedbackMessage = "Action canceled";
+            return;
+        }
+        if (definition == null || definition.mode() != UiActionMode.BUILD) {
+            buildPreviewState = null;
+        }
+        actionFeedbackMessage = "";
     }
 
     private boolean isActionAvailableForCurrentSelection(String actionId) {
@@ -242,14 +292,20 @@ public final class SandboxScene implements Scene {
     }
 
     private String resolveFallbackActionId() {
+        String selectedType = selectedEntityType.isBlank() ? "none" : selectedEntityType;
+        List<UiActionDefinition> actions = uiActionCatalog.actionsForEntityType(selectedType);
+        if (actions.isEmpty()) {
+            return "";
+        }
         if (isActionAvailableForCurrentSelection(defaultHudActionId)) {
             return defaultHudActionId;
         }
-        String selectedType = selectedEntityType.isBlank() ? "none" : selectedEntityType;
-        return uiActionCatalog.actionsForEntityType(selectedType).stream()
-            .map(UiActionDefinition::id)
-            .findFirst()
-            .orElse("");
+        for (UiActionDefinition action : actions) {
+            if (action.mode() == UiActionMode.CANCEL) {
+                return action.id();
+            }
+        }
+        return actions.getFirst().id();
     }
 
     private void applyMoveBuilderCommand(MoveBuilderCommand command) {
@@ -257,6 +313,134 @@ public final class SandboxScene implements Scene {
             return;
         }
         builderUnit.setMovementTarget(command.targetPosition());
+        actionFeedbackMessage = "";
+    }
+
+    private void applyBuildTowerCommand(BuildTowerCommand command) {
+        if (!builderUnit.instanceId().equals(command.builderInstanceId())) {
+            return;
+        }
+
+        TowerDefinition tower = towerCatalog.required(command.towerDefinitionId());
+        BuildValidationResult validation = validateBuildPlacement(tower, command.targetPosition());
+        buildPreviewState = new BuildPreviewState(tower.id(), validation.position(), validation.valid());
+
+        if (!validation.valid()) {
+            actionFeedbackMessage = validation.reason();
+            return;
+        }
+
+        TowerInstance placedTower = new TowerInstance(nextTowerInstanceId(), tower, validation.position());
+        activeTowers.add(placedTower);
+        occupiedTowerCells.add(validation.cell());
+        playerGold -= tower.costGold();
+        actionFeedbackMessage = "Built " + tower.id() + " (-" + tower.costGold() + "g)";
+    }
+
+    private BuildValidationResult validateBuildPlacement(TowerDefinition tower, Vector3 worldPoint) {
+        GridCell cell = toGridCell(worldPoint);
+        Vector3 position = toCellCenter(cell);
+
+        if (!gameplayMap.buildableCells().contains(cell) || gameplayMap.blockedCells().contains(cell)) {
+            return new BuildValidationResult(false, "Cannot build on that cell", cell, position);
+        }
+        if (occupiedTowerCells.contains(cell)) {
+            return new BuildValidationResult(false, "Cell is already occupied", cell, position);
+        }
+
+        double buildDistance = horizontalDistance(builderUnit.position(), position);
+        if (buildDistance > builderUnit.definition().buildRangeUnits()) {
+            return new BuildValidationResult(false, "Target is out of builder range", cell, position);
+        }
+
+        if (playerGold < tower.costGold()) {
+            return new BuildValidationResult(false, "Not enough gold", cell, position);
+        }
+
+        return new BuildValidationResult(true, "", cell, position);
+    }
+
+    private void applySellTowerCommand(SellTowerCommand command) {
+        if (command.towerInstanceId() == null || command.towerInstanceId().isBlank()) {
+            actionFeedbackMessage = "Select a tower to sell";
+            return;
+        }
+
+        TowerInstance tower = findTowerByInstanceId(command.towerInstanceId());
+        if (tower == null) {
+            actionFeedbackMessage = "Tower not found";
+            return;
+        }
+
+        int refund = (int) Math.round(tower.definition().costGold() * tower.definition().sellRefundRatio());
+        activeTowers.remove(tower);
+        occupiedTowerCells.remove(toGridCell(tower.position()));
+        playerGold += refund;
+
+        if ("tower".equals(selectedEntityType) && selectedEntityId.equals(tower.instanceId())) {
+            selectedEntityType = "";
+            selectedEntityId = "";
+            activeHudActionId = resolveFallbackActionId();
+        }
+        actionFeedbackMessage = "Sold " + tower.definition().id() + " (+" + refund + "g)";
+    }
+
+    private String resolveSellTargetTowerId(Vector3 worldPoint) {
+        PickedEntity picked = pickEntityAt(worldPoint);
+        if (picked != null && "tower".equals(picked.type())) {
+            return picked.id();
+        }
+        return selectedEntityId;
+    }
+
+    private void updateBuildPreview(String towerId, Vector3 worldPoint) {
+        TowerDefinition tower = towerCatalog.required(towerId);
+        BuildValidationResult validation = validateBuildPlacement(tower, worldPoint);
+        buildPreviewState = new BuildPreviewState(tower.id(), validation.position(), validation.valid());
+    }
+
+    private boolean isBuildActionActive() {
+        UiActionDefinition active = currentActiveAction();
+        return active != null && active.mode() == UiActionMode.BUILD;
+    }
+
+    private UiActionDefinition currentActiveAction() {
+        if (activeHudActionId == null || activeHudActionId.isBlank()) {
+            return null;
+        }
+        try {
+            return uiActionCatalog.required(activeHudActionId);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private boolean isSelectedBuilder() {
+        return "builder".equals(selectedEntityType) && builderUnit.instanceId().equals(selectedEntityId);
+    }
+
+    private GridCell toGridCell(Vector3 position) {
+        int cellX = (int) Math.round(position.x() / grid.cellSize());
+        int cellZ = (int) Math.round(position.z() / grid.cellSize());
+        return new GridCell(cellX, cellZ);
+    }
+
+    private Vector3 toCellCenter(GridCell cell) {
+        return new Vector3(cell.x() * grid.cellSize(), 0.0, cell.z() * grid.cellSize());
+    }
+
+    private String nextTowerInstanceId() {
+        towerSequence++;
+        return "tower-" + towerSequence;
+    }
+
+    private TowerInstance findTowerByInstanceId(String towerInstanceId) {
+        for (TowerInstance tower : activeTowers) {
+            if (tower.instanceId().equals(towerInstanceId)) {
+                return tower;
+            }
+        }
+        return null;
     }
 
     private PickedEntity pickEntityAt(Vector3 worldPoint) {
@@ -269,11 +453,15 @@ public final class SandboxScene implements Scene {
         double towerPickRadius = 0.45 * grid.cellSize();
         for (TowerInstance tower : activeTowers) {
             if (horizontalDistanceSquared(tower.position(), worldPoint) <= towerPickRadius * towerPickRadius) {
-                return new PickedEntity("tower", tower.definition().id());
+                return new PickedEntity("tower", tower.instanceId());
             }
         }
 
         return null;
+    }
+
+    private double horizontalDistance(Vector3 a, Vector3 b) {
+        return Math.sqrt(horizontalDistanceSquared(a, b));
     }
 
     private double horizontalDistanceSquared(Vector3 a, Vector3 b) {
@@ -345,9 +533,11 @@ public final class SandboxScene implements Scene {
     public WorldView captureView() {
         List<TowerView> towerViews = activeTowers.stream()
             .map(tower -> new TowerView(
+                tower.instanceId(),
                 tower.definition().id(),
                 tower.position(),
-                tower.definition().rangeUnits()
+                tower.definition().rangeUnits(),
+                "tower".equals(selectedEntityType) && tower.instanceId().equals(selectedEntityId)
             ))
             .toList();
 
@@ -371,7 +561,7 @@ public final class SandboxScene implements Scene {
         List<HudActionView> hudActionViews = uiActionCatalog.actionsForEntityType(selectedType).stream()
             .map(action -> new HudActionView(
                 action.id(),
-                action.label(),
+                labelForAction(action),
                 action.hotkey(),
                 action.id().equals(activeHudActionId)
             ))
@@ -383,14 +573,20 @@ public final class SandboxScene implements Scene {
             gameplayMap.blockedCells()
         );
 
+        BuildPreviewView buildPreview = buildPreviewState == null
+            ? null
+            : new BuildPreviewView(buildPreviewState.towerId(), buildPreviewState.position(), buildPreviewState.valid());
+
         return new WorldView(
             grid,
             mapDebugView,
+            buildPreview,
             towerViews,
             builderViews,
             enemyViews,
             hudActionViews,
             activeHudActionId,
+            actionFeedbackMessage,
             selectedEntityType,
             selectedEntityId,
             matchStateMachine.currentWaveNumber(),
@@ -403,33 +599,20 @@ public final class SandboxScene implements Scene {
         );
     }
 
-    private void placeDefaultTowerAtNextCell() {
-        TowerDefinition tower = towerCatalog.required(defaultTowerId);
-        if (playerGold < tower.costGold()) {
-            return;
+    private String labelForAction(UiActionDefinition action) {
+        if (action.mode() != UiActionMode.BUILD) {
+            return action.label();
         }
-
-        GridCell nextCell = gameplayMap.buildableCells().stream()
-            .filter(cell -> !gameplayMap.blockedCells().contains(cell))
-            .filter(cell -> !occupiedTowerCells.contains(cell))
-            .sorted(Comparator.comparingInt(GridCell::x).thenComparingInt(GridCell::z))
-            .findFirst()
-            .orElse(null);
-        if (nextCell == null) {
-            return;
-        }
-
-        Vector3 position = new Vector3(
-            nextCell.x() * grid.cellSize(),
-            0.0,
-            nextCell.z() * grid.cellSize()
-        );
-
-        activeTowers.add(new TowerInstance(tower, position));
-        occupiedTowerCells.add(nextCell);
-        playerGold -= tower.costGold();
+        TowerDefinition tower = towerCatalog.required(action.towerId());
+        return action.label() + " (" + tower.costGold() + "g)";
     }
 
     private record PickedEntity(String type, String id) {
+    }
+
+    private record BuildPreviewState(String towerId, Vector3 position, boolean valid) {
+    }
+
+    private record BuildValidationResult(boolean valid, String reason, GridCell cell, Vector3 position) {
     }
 }

@@ -2,7 +2,7 @@
 
 Incremental playable foundation for a 3D tower defense game in Java 25.
 
-## Current Step Scope (Step 06)
+## Current Step Scope (Step 07)
 
 The project now provides:
 
@@ -21,7 +21,6 @@ The project now provides:
 - Data-driven wave definitions from content (`content/base/waves/*.properties`)
 - Wave spawner service driven by configured per-wave spawn groups
 - Centralized match state machine with `PRE_WAVE`, `IN_WAVE`, `POST_WAVE`, `VICTORY`, and `DEFEAT`
-- Basic tower placement (`T`) on buildable cells
 - Selection system for world entities (builder and tower hit test hooks)
 - Runtime builder unit instance with data-driven spawn and movement speed
 - Right-click movement through a command queue (no direct input-to-gameplay mutation)
@@ -31,6 +30,13 @@ The project now provides:
 - Action menu buttons rendered from data-driven action definitions
 - Hotkey binding support for action dispatch
 - HUD button and hotkey dispatch routed into command flow (`UiActionCommand`)
+- Config-driven action modes (`move`, `build`, `sell`, `cancel`) with optional per-action tower binding
+- Builder-driven tower construction through build actions and right-click world targeting
+- Build placement validation (buildable cell, blocked/occupied checks, builder range, and gold checks)
+- Build preview placeholder visualization with valid/invalid feedback tint
+- Tower selection by runtime instance and command-driven selling flow
+- Config-driven sell refund ratios per tower definition
+- Invalid action feedback surfaced in HUD status text
 - Target acquisition and attack cadence for placed towers
 - Extensible attack abstraction with initial `hitscan` mode
 - Enemy health, death handling, and gold reward on kill
@@ -41,7 +47,7 @@ The project now provides:
 - Win condition when all waves are cleared
 - Lose trigger when player lives reach zero
 
-Still intentionally out of scope: full minimap features, build placement flow, selling, upgrades, audio, and networking.
+Still intentionally out of scope: full minimap features, upgrades, audio, and networking.
 
 ## Run
 
@@ -60,14 +66,21 @@ mvn compile exec:java
 Controls:
 
 - `Esc`: close the game
-- `T`: place one default tower on the next available buildable cell
-- `Left Click`: select world entity
-- `Right Click`: issue move command for selected builder
-- `M`, `B`, `C`: action hotkeys (data-driven from UI action content)
+- `Left Click`: select world entity (builder or tower)
+- `Right Click`: execute current action (move, build, or sell) at click location
+- `M`: switch to move action (selected builder)
+- `B`: switch to build action (selected builder, places arrow tower)
+- `X`: switch to sell action (selected tower)
+- `C`: cancel action, revert to default
 - Window close button: close the game
 
 Gameplay note:
 
+- Select the builder to begin; it starts at a fixed spawn location.
+- Right-click the map with move action active to command the builder to walk to that location.
+- Right-click the map with build action active to place a tower at that valid cell (within builder range, costs gold, cell must be buildable and not occupied).
+- A green preview ghost shows valid placement; red shows invalid (out of range, obstructed, or no gold).
+- Select a tower and right-click it with sell action active to sell it and receive refund gold.
 - Enemies spawn according to configured wave definitions and walk along the configured map path.
 - Placed towers automatically attack enemies in range.
 - Player gains gold when towers kill enemies.

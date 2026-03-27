@@ -37,7 +37,8 @@ public final class TowerContentLoader {
                 doubleProperty(properties, prefix + "damage_per_shot"),
                 doubleProperty(properties, prefix + "attacks_per_second"),
                 intProperty(properties, prefix + "cost_gold"),
-                required(properties, prefix + "attack_mode")
+                required(properties, prefix + "attack_mode"),
+                optionalDoubleProperty(properties, prefix + "sell_refund_ratio", 0.5)
             );
             definitionsById.put(id, definition);
         }
@@ -59,5 +60,13 @@ public final class TowerContentLoader {
             throw new IllegalStateException("Missing required tower property: " + key);
         }
         return value;
+    }
+
+    private double optionalDoubleProperty(Properties properties, String key, double defaultValue) {
+        String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        return Double.parseDouble(value);
     }
 }

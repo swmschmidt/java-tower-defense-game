@@ -71,10 +71,15 @@
 
 ## Notes
 
-- The current implementation targets Step 06.
+- The current implementation targets Step 07.
+- Gameplay simulation is decoupled from rendering using `WorldView` snapshot pattern.
 - Rendering is isolated behind `FrameRenderer`.
-- Scene state is exposed through `WorldView` to keep simulation decoupled from rendering.
+- Input is routed to a command queue; no direct input-to-gameplay mutations occur.
 - Map, enemy, tower, builder, UI action, and wave definitions are loaded from external content files.
 - Match flow is centralized in gameplay state components (`match` and `wave` packages).
-- Selection and movement use a command-oriented flow so input does not directly mutate gameplay state.
+- Builder actions (move, build, sell) use config-driven mode metadata with optional per-action tower binding.
+- Tower instance IDs enable runtime tracking for selection, selling, and targeting.
+- Build preview state provides placement feedback (valid/invalid).
+- Sell refund ratios are per-tower and data-driven.
 - Lower HUD rendering and hit-testing are isolated in presentation classes (`SoftwareGridRenderer`, `LowerHudLayout`).
+- Scene state exposure through `WorldView` keeps simulation fully decoupled from rendering.

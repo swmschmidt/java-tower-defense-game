@@ -2,6 +2,7 @@ package com.swmschmidt.td.infrastructure.rendering.swing;
 
 import com.swmschmidt.td.core.math.Vector3;
 import com.swmschmidt.td.core.scene.BuilderView;
+import com.swmschmidt.td.core.scene.BuildPreviewView;
 import com.swmschmidt.td.core.scene.EnemyView;
 import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.HudActionView;
@@ -39,6 +40,9 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         if (worldView.mapDebugView() != null) {
             drawMapDebug(graphics, worldView.mapDebugView(), worldView.grid(), camera, width, height);
         }
+        if (worldView.buildPreview() != null) {
+            drawBuildPreview(graphics, worldView.buildPreview(), camera, width, height);
+        }
         drawTowers(graphics, worldView.towers(), camera, width, height);
         drawBuilders(graphics, worldView.builders(), camera, width, height);
         drawEnemies(graphics, worldView.enemies(), camera, width, height);
@@ -48,7 +52,8 @@ public final class SoftwareGridRenderer implements FrameRenderer {
             worldView.totalWaves(),
             worldView.matchState(),
             worldView.playerGold(),
-            worldView.playerLives()
+            worldView.playerLives(),
+            worldView.actionFeedbackMessage()
         );
         drawLowerHud(
             graphics,
@@ -91,16 +96,52 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         int totalWaves,
         String matchState,
         int gold,
-        int lives
+        int lives,
+        String actionFeedbackMessage
     ) {
         graphics.setColor(new Color(16, 20, 30, 170));
-        graphics.fillRoundRect(14, 14, 290, 92, 12, 12);
+        graphics.fillRoundRect(14, 14, 420, 92, 12, 12);
         graphics.setColor(new Color(224, 228, 235));
         graphics.setFont(graphics.getFont().deriveFont(16f));
         graphics.drawString("Wave: " + currentWave + " / " + totalWaves, 24, 38);
         graphics.drawString("State: " + matchState, 24, 58);
         graphics.drawString("Gold: " + gold, 24, 78);
         graphics.drawString("Lives: " + lives, 160, 78);
+        if (actionFeedbackMessage != null && !actionFeedbackMessage.isBlank()) {
+            graphics.setFont(graphics.getFont().deriveFont(12f));
+            graphics.drawString("Action: " + actionFeedbackMessage, 240, 78);
+        }
+    }
+
+    private void drawBuildPreview(
+        Graphics2D graphics,
+        BuildPreviewView preview,
+        FixedCamera camera,
+        int width,
+        int height
+    ) {
+        ProjectedPoint center = project(lift(preview.position(), 0.16), camera, width, height);
+        if (!center.visible) {
+            return;
+        }
+        ProjectedPoint radiusPoint = project(
+            lift(preview.position().add(new Vector3(0.4, 0.0, 0.0)), 0.16),
+            camera,
+            width,
+            height
+        );
+        if (!radiusPoint.visible) {
+            return;
+        }
+        int radiusPixels = Math.max(4, Math.abs(radiusPoint.x - center.x));
+        int diameter = radiusPixels * 2;
+
+        Color fill = preview.valid() ? new Color(104, 211, 140, 118) : new Color(222, 93, 93, 118);
+        Color stroke = preview.valid() ? new Color(193, 255, 215) : new Color(255, 207, 207);
+        graphics.setColor(fill);
+        graphics.fillOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+        graphics.setColor(stroke);
+        graphics.drawOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
     }
 
     private void drawLowerHud(Graphics2D graphics, WorldView worldView, int width, int height) {
@@ -373,6 +414,12 @@ public final class SoftwareGridRenderer implements FrameRenderer {
             graphics.fillOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
             graphics.setColor(new Color(195, 217, 255));
             graphics.drawOval(center.x - radiusPixels, center.y - radiusPixels, diameter, diameter);
+            if (tower.selected()) {
+                graphics.setColor(new Color(255, 225, 120));
+                int ringRadius = radiusPixels + 5;
+                int ringDiameter = ringRadius * 2;
+                graphics.drawOval(center.x - ringRadius, center.y - ringRadius, ringDiameter, ringDiameter);
+            }
             graphics.setColor(new Color(93, 132, 214));
         }
     }
