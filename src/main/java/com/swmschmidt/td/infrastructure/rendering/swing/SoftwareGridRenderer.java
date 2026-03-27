@@ -33,9 +33,19 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         }
         drawTowers(graphics, worldView.towers(), camera, width, height);
         drawEnemies(graphics, worldView.enemies(), camera, width, height);
-        drawHud(graphics, worldView.playerGold(), worldView.playerLives());
+        drawHud(
+            graphics,
+            worldView.currentWave(),
+            worldView.totalWaves(),
+            worldView.matchState(),
+            worldView.playerGold(),
+            worldView.playerLives()
+        );
         if (worldView.defeatTriggered()) {
             drawDefeatLabel(graphics, width);
+        }
+        if (worldView.victoryTriggered()) {
+            drawVictoryLabel(graphics, width);
         }
 
         graphics.dispose();
@@ -48,21 +58,29 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         graphics.drawString("Defeat: an enemy reached the goal", Math.max(16, width / 2 - 220), 36);
     }
 
+    private void drawVictoryLabel(Graphics2D graphics, int width) {
+        graphics.setColor(new Color(88, 186, 102));
+        graphics.setFont(graphics.getFont().deriveFont(28f));
+        graphics.drawString("Victory: all waves cleared", Math.max(16, width / 2 - 180), 36);
+    }
+
     private void drawBackground(Graphics2D graphics, int width, int height) {
         GradientPaint sky = new GradientPaint(0, 0, new Color(35, 47, 74), 0, height, new Color(17, 22, 33));
         graphics.setPaint(sky);
         graphics.fillRect(0, 0, width, height);
     }
 
-    private void drawHud(Graphics2D graphics, int gold, int lives) {
+    private void drawHud(Graphics2D graphics, int currentWave, int totalWaves, String matchState, int gold, int lives) {
         graphics.setColor(new Color(16, 20, 30, 170));
-        graphics.fillRoundRect(14, 14, 260, 76, 12, 12);
+        graphics.fillRoundRect(14, 14, 340, 112, 12, 12);
         graphics.setColor(new Color(224, 228, 235));
-        graphics.setFont(graphics.getFont().deriveFont(18f));
-        graphics.drawString("Gold: " + gold, 24, 42);
-        graphics.drawString("Lives: " + lives, 24, 64);
+        graphics.setFont(graphics.getFont().deriveFont(16f));
+        graphics.drawString("Wave: " + currentWave + " / " + totalWaves, 24, 38);
+        graphics.drawString("State: " + matchState, 24, 58);
+        graphics.drawString("Gold: " + gold, 24, 78);
+        graphics.drawString("Lives: " + lives, 24, 98);
         graphics.setFont(graphics.getFont().deriveFont(14f));
-        graphics.drawString("Press T to place tower", 24, 84);
+        graphics.drawString("Press T to place tower", 186, 98);
     }
 
     private void drawGroundGrid(Graphics2D graphics, GridDefinition grid, FixedCamera camera, int width, int height) {

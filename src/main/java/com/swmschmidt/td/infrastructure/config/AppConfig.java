@@ -16,9 +16,9 @@ public record AppConfig(
     String mapContentPath,
     String enemyContentPath,
     String towerContentPath,
-    String spawnEnemyId,
-    double spawnIntervalSeconds,
-    int spawnMaxCount,
+    String waveContentPath,
+    double preWaveDelaySeconds,
+    double postWaveDelaySeconds,
     String defaultTowerId,
     int startingGold,
     int startingLives

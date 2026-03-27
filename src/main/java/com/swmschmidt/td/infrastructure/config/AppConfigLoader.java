@@ -56,9 +56,9 @@ public final class AppConfigLoader {
             required(properties, "content.map_file"),
             required(properties, "content.enemies_file"),
             required(properties, "content.towers_file"),
-            required(properties, "gameplay.spawn.enemy_id"),
-            doubleProperty(properties, "gameplay.spawn.interval_seconds"),
-            intProperty(properties, "gameplay.spawn.max_count"),
+            required(properties, "content.waves_file"),
+            doubleProperty(properties, "gameplay.pre_wave_delay_seconds"),
+            doubleProperty(properties, "gameplay.post_wave_delay_seconds"),
             required(properties, "gameplay.default_tower_id"),
             intProperty(properties, "gameplay.starting_gold"),
             intProperty(properties, "gameplay.starting_lives")

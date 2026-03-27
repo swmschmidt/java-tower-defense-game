@@ -7,9 +7,13 @@ public record WorldView(
 	MapDebugView mapDebugView,
 	List<TowerView> towers,
 	List<EnemyView> enemies,
+	int currentWave,
+	int totalWaves,
+	String matchState,
 	int playerGold,
 	int playerLives,
-	boolean defeatTriggered
+	boolean defeatTriggered,
+	boolean victoryTriggered
 ) {
 	public WorldView {
 		towers = List.copyOf(towers);
@@ -17,6 +21,6 @@ public record WorldView(
 	}
 
 	public WorldView(GridDefinition grid) {
-		this(grid, null, List.of(), List.of(), 0, 0, false);
+		this(grid, null, List.of(), List.of(), 1, 1, "PRE_WAVE", 0, 0, false, false);
 	}
 }

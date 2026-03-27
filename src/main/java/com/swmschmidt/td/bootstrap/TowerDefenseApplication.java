@@ -4,6 +4,7 @@ import com.swmschmidt.td.application.scene.SandboxScene;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
 import com.swmschmidt.td.core.gameplay.map.GameplayMap;
 import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
+import com.swmschmidt.td.core.gameplay.wave.WaveCatalog;
 import com.swmschmidt.td.core.gameloop.GameLoop;
 import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.SceneManager;
@@ -12,6 +13,7 @@ import com.swmschmidt.td.infrastructure.config.AppConfigLoader;
 import com.swmschmidt.td.infrastructure.content.EnemyContentLoader;
 import com.swmschmidt.td.infrastructure.content.MapContentLoader;
 import com.swmschmidt.td.infrastructure.content.TowerContentLoader;
+import com.swmschmidt.td.infrastructure.content.WaveContentLoader;
 import com.swmschmidt.td.infrastructure.input.SwingInputService;
 import com.swmschmidt.td.infrastructure.rendering.api.FrameRenderer;
 import com.swmschmidt.td.infrastructure.rendering.camera.FixedCamera;
@@ -31,6 +33,7 @@ public final class TowerDefenseApplication {
         GameplayMap gameplayMap = new MapContentLoader().load(Path.of(config.mapContentPath()));
         EnemyCatalog enemyCatalog = new EnemyContentLoader().load(Path.of(config.enemyContentPath()));
         TowerCatalog towerCatalog = new TowerContentLoader().load(Path.of(config.towerContentPath()));
+        WaveCatalog waveCatalog = new WaveContentLoader().load(Path.of(config.waveContentPath()));
 
         SwingInputService input = new SwingInputService();
 
@@ -40,9 +43,9 @@ public final class TowerDefenseApplication {
                 gameplayMap,
                 enemyCatalog,
                 towerCatalog,
-                config.spawnEnemyId(),
-                config.spawnIntervalSeconds(),
-                config.spawnMaxCount(),
+                waveCatalog,
+                config.preWaveDelaySeconds(),
+                config.postWaveDelaySeconds(),
                 config.defaultTowerId(),
                 config.startingGold(),
                 config.startingLives(),

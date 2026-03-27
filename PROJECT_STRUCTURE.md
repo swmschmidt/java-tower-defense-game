@@ -24,6 +24,7 @@
 |   |   |-- units/
 |   |   |-- upgrades/
 |   |   `-- waves/
+|   |   |   `-- sandbox-waves.properties
 |   `-- mods/
 |       `-- example-mod/
 |-- src/
@@ -35,8 +36,10 @@
 |   |   |   |   |-- gameplay/
 |   |   |   |   |   |-- combat/
 |   |   |   |   |   |-- enemy/
+|   |   |   |   |   |-- match/
 |   |   |   |   |   `-- map/
 |   |   |   |   |   `-- tower/
+|   |   |   |   |   `-- wave/
 |   |   |   |   |-- gameloop/
 |   |   |   |   |-- input/
 |   |   |   |   |-- math/
@@ -65,7 +68,8 @@
 
 ## Notes
 
-- The current implementation targets Step 03.
+- The current implementation targets Step 04.
 - Rendering is isolated behind `FrameRenderer`.
 - Scene state is exposed through `WorldView` to keep simulation decoupled from rendering.
-- Map, enemy, and tower definitions are loaded from external content files.
+- Map, enemy, tower, and wave definitions are loaded from external content files.
+- Match flow is centralized in gameplay state components (`match` and `wave` packages).
