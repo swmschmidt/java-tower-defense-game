@@ -4,11 +4,16 @@ import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyInstance;
 import com.swmschmidt.td.core.gameplay.combat.HitscanAttackResolver;
 import com.swmschmidt.td.core.gameplay.combat.TowerCombatSystem;
+import com.swmschmidt.td.core.gameplay.match.MatchPhase;
+import com.swmschmidt.td.core.gameplay.match.MatchStateMachine;
 import com.swmschmidt.td.core.gameplay.map.GameplayMap;
 import com.swmschmidt.td.core.gameplay.map.GridCell;
 import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
 import com.swmschmidt.td.core.gameplay.tower.TowerDefinition;
 import com.swmschmidt.td.core.gameplay.tower.TowerInstance;
+import com.swmschmidt.td.core.gameplay.wave.WaveCatalog;
+import com.swmschmidt.td.core.gameplay.wave.WaveDefinition;
+import com.swmschmidt.td.core.gameplay.wave.WaveSpawnerService;
 import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.MapDebugView;
 import com.swmschmidt.td.core.scene.EnemyView;
@@ -29,30 +34,27 @@ public final class SandboxScene implements Scene {
     private final GameplayMap gameplayMap;
     private final EnemyCatalog enemyCatalog;
     private final TowerCatalog towerCatalog;
-    private final String spawnEnemyId;
-    private final double spawnIntervalSeconds;
-    private final int spawnMaxCount;
+    private final WaveCatalog waveCatalog;
     private final String defaultTowerId;
     private final BooleanSupplier placeTowerRequested;
     private final TowerCombatSystem towerCombatSystem;
+    private final MatchStateMachine matchStateMachine;
 
     private final List<EnemyInstance> activeEnemies;
     private final List<TowerInstance> activeTowers;
     private final Set<GridCell> occupiedTowerCells;
-    private double spawnAccumulatorSeconds;
-    private int spawnedCount;
+    private WaveSpawnerService waveSpawner;
     private int playerGold;
     private int playerLives;
-    private boolean defeatTriggered;
 
     public SandboxScene(
         GridDefinition grid,
         GameplayMap gameplayMap,
         EnemyCatalog enemyCatalog,
         TowerCatalog towerCatalog,
-        String spawnEnemyId,
-        double spawnIntervalSeconds,
-        int spawnMaxCount,
+        WaveCatalog waveCatalog,
+        double preWaveDelaySeconds,
+        double postWaveDelaySeconds,
         String defaultTowerId,
         int startingGold,
         int startingLives,
@@ -62,28 +64,23 @@ public final class SandboxScene implements Scene {
         this.gameplayMap = gameplayMap;
         this.enemyCatalog = enemyCatalog;
         this.towerCatalog = towerCatalog;
-        this.spawnEnemyId = spawnEnemyId;
-        this.spawnIntervalSeconds = spawnIntervalSeconds;
-        this.spawnMaxCount = spawnMaxCount;
+        this.waveCatalog = waveCatalog;
         this.defaultTowerId = defaultTowerId;
         this.placeTowerRequested = placeTowerRequested;
 
         this.activeEnemies = new ArrayList<>();
         this.activeTowers = new ArrayList<>();
         this.occupiedTowerCells = new LinkedHashSet<>();
-        this.spawnAccumulatorSeconds = 0.0;
-        this.spawnedCount = 0;
         this.playerGold = startingGold;
         this.playerLives = startingLives;
-        this.defeatTriggered = false;
         this.towerCombatSystem = new TowerCombatSystem(List.of(new HitscanAttackResolver()));
+        this.matchStateMachine = new MatchStateMachine(
+            waveCatalog.totalWaves(),
+            preWaveDelaySeconds,
+            postWaveDelaySeconds
+        );
+        this.waveSpawner = null;
 
-        if (spawnIntervalSeconds <= 0.0) {
-            throw new IllegalArgumentException("spawnIntervalSeconds must be positive");
-        }
-        if (spawnMaxCount < 1) {
-            throw new IllegalArgumentException("spawnMaxCount must be at least 1");
-        }
         if (startingGold < 0) {
             throw new IllegalArgumentException("startingGold must be at least zero");
         }
@@ -94,7 +91,7 @@ public final class SandboxScene implements Scene {
 
     @Override
     public void update(double deltaSeconds) {
-        if (defeatTriggered) {
+        if (matchStateMachine.isTerminal()) {
             return;
         }
 
@@ -102,19 +99,45 @@ public final class SandboxScene implements Scene {
             placeDefaultTowerAtNextCell();
         }
 
-        spawnAccumulatorSeconds += deltaSeconds;
-        while (spawnedCount < spawnMaxCount && spawnAccumulatorSeconds >= spawnIntervalSeconds) {
-            spawnAccumulatorSeconds -= spawnIntervalSeconds;
-            activeEnemies.add(new EnemyInstance(enemyCatalog.required(spawnEnemyId), gameplayMap.path()));
-            spawnedCount++;
-        }
+        updateMatchFlow(deltaSeconds);
 
         for (EnemyInstance enemy : activeEnemies) {
             enemy.update(deltaSeconds, gameplayMap.path());
         }
 
         towerCombatSystem.update(activeTowers, activeEnemies, deltaSeconds);
+        removeResolvedEnemiesAndApplyEconomy();
+    }
 
+    private void updateMatchFlow(double deltaSeconds) {
+        if (matchStateMachine.phase() == MatchPhase.PRE_WAVE) {
+            matchStateMachine.updateBeforeWave(deltaSeconds);
+            if (matchStateMachine.isInWave()) {
+                startCurrentWave();
+            }
+            return;
+        }
+
+        if (matchStateMachine.isInWave()) {
+            activeEnemies.addAll(waveSpawner.update(deltaSeconds, enemyCatalog, gameplayMap.path()));
+            if (waveSpawner.isCompleted() && activeEnemies.isEmpty()) {
+                matchStateMachine.onWaveCompleted();
+            }
+            return;
+        }
+
+        if (matchStateMachine.phase() == MatchPhase.POST_WAVE) {
+            matchStateMachine.updateAfterWave(deltaSeconds);
+            waveSpawner = null;
+        }
+    }
+
+    private void startCurrentWave() {
+        WaveDefinition wave = waveCatalog.waveAt(matchStateMachine.currentWaveNumber() - 1);
+        waveSpawner = new WaveSpawnerService(wave);
+    }
+
+    private void removeResolvedEnemiesAndApplyEconomy() {
         List<EnemyInstance> survivors = new ArrayList<>(activeEnemies.size());
         for (EnemyInstance enemy : activeEnemies) {
             if (!enemy.isAlive()) {
@@ -124,7 +147,7 @@ public final class SandboxScene implements Scene {
             if (enemy.reachedGoal()) {
                 playerLives--;
                 if (playerLives <= 0) {
-                    defeatTriggered = true;
+                    matchStateMachine.onDefeat();
                 }
                 continue;
             }
@@ -132,6 +155,17 @@ public final class SandboxScene implements Scene {
         }
         activeEnemies.clear();
         activeEnemies.addAll(survivors);
+
+        if (matchStateMachine.isInWave() && waveSpawner.isCompleted() && activeEnemies.isEmpty()) {
+            matchStateMachine.onWaveCompleted();
+        }
+
+        if (matchStateMachine.phase() == MatchPhase.POST_WAVE) {
+            matchStateMachine.updateAfterWave(0.0);
+            if (matchStateMachine.phase() == MatchPhase.PRE_WAVE) {
+                waveSpawner = null;
+            }
+        }
     }
 
     @Override
@@ -158,7 +192,19 @@ public final class SandboxScene implements Scene {
             gameplayMap.blockedCells()
         );
 
-        return new WorldView(grid, mapDebugView, towerViews, enemyViews, playerGold, playerLives, defeatTriggered);
+        return new WorldView(
+            grid,
+            mapDebugView,
+            towerViews,
+            enemyViews,
+            matchStateMachine.currentWaveNumber(),
+            matchStateMachine.totalWaves(),
+            matchStateMachine.phase().name(),
+            playerGold,
+            playerLives,
+            matchStateMachine.phase() == MatchPhase.DEFEAT,
+            matchStateMachine.phase() == MatchPhase.VICTORY
+        );
     }
 
     private void placeDefaultTowerAtNextCell() {
