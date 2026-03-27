@@ -39,6 +39,7 @@
 |   |   |   |   |   |-- command/
 |   |   |   |   |   |-- enemy/
 |   |   |   |   |   |-- match/
+|   |   |   |   |   |-- uiaction/
 |   |   |   |   |   `-- map/
 |   |   |   |   |   `-- tower/
 |   |   |   |   |   `-- wave/
@@ -70,10 +71,10 @@
 
 ## Notes
 
-- The current implementation targets Step 04.
-- The current implementation targets Step 05.
+- The current implementation targets Step 06.
 - Rendering is isolated behind `FrameRenderer`.
 - Scene state is exposed through `WorldView` to keep simulation decoupled from rendering.
-- Map, enemy, tower, builder, and wave definitions are loaded from external content files.
+- Map, enemy, tower, builder, UI action, and wave definitions are loaded from external content files.
 - Match flow is centralized in gameplay state components (`match` and `wave` packages).
 - Selection and movement use a command-oriented flow so input does not directly mutate gameplay state.
+- Lower HUD rendering and hit-testing are isolated in presentation classes (`SoftwareGridRenderer`, `LowerHudLayout`).

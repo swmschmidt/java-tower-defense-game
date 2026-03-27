@@ -6,6 +6,7 @@ import com.swmschmidt.td.core.gameplay.builder.BuilderUnitInstance;
 import com.swmschmidt.td.core.gameplay.command.GameCommand;
 import com.swmschmidt.td.core.gameplay.command.MoveBuilderCommand;
 import com.swmschmidt.td.core.gameplay.command.SelectEntityCommand;
+import com.swmschmidt.td.core.gameplay.command.UiActionCommand;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyCatalog;
 import com.swmschmidt.td.core.gameplay.enemy.EnemyInstance;
 import com.swmschmidt.td.core.gameplay.combat.HitscanAttackResolver;
@@ -17,6 +18,8 @@ import com.swmschmidt.td.core.gameplay.map.GridCell;
 import com.swmschmidt.td.core.gameplay.tower.TowerCatalog;
 import com.swmschmidt.td.core.gameplay.tower.TowerDefinition;
 import com.swmschmidt.td.core.gameplay.tower.TowerInstance;
+import com.swmschmidt.td.core.gameplay.uiaction.UiActionCatalog;
+import com.swmschmidt.td.core.gameplay.uiaction.UiActionDefinition;
 import com.swmschmidt.td.core.gameplay.wave.WaveCatalog;
 import com.swmschmidt.td.core.gameplay.wave.WaveDefinition;
 import com.swmschmidt.td.core.gameplay.wave.WaveSpawnerService;
@@ -24,6 +27,7 @@ import com.swmschmidt.td.core.scene.GridDefinition;
 import com.swmschmidt.td.core.scene.MapDebugView;
 import com.swmschmidt.td.core.scene.BuilderView;
 import com.swmschmidt.td.core.scene.EnemyView;
+import com.swmschmidt.td.core.scene.HudActionView;
 import com.swmschmidt.td.core.scene.Scene;
 import com.swmschmidt.td.core.scene.TowerView;
 import com.swmschmidt.td.core.scene.WorldView;
@@ -46,12 +50,16 @@ public final class SandboxScene implements Scene {
     private final EnemyCatalog enemyCatalog;
     private final TowerCatalog towerCatalog;
     private final BuilderCatalog builderCatalog;
+    private final UiActionCatalog uiActionCatalog;
     private final WaveCatalog waveCatalog;
     private final String defaultTowerId;
     private final String defaultBuilderId;
+    private final String defaultHudActionId;
     private final BooleanSupplier placeTowerRequested;
     private final Supplier<Optional<Vector3>> selectWorldPointRequested;
     private final Supplier<Optional<Vector3>> contextWorldPointRequested;
+    private final Supplier<Optional<String>> hudActionRequested;
+    private final Supplier<Optional<String>> hudHotkeyActionRequested;
     private final TowerCombatSystem towerCombatSystem;
     private final MatchStateMachine matchStateMachine;
     private final Queue<GameCommand> pendingCommands;
@@ -63,6 +71,7 @@ public final class SandboxScene implements Scene {
     private WaveSpawnerService waveSpawner;
     private String selectedEntityType;
     private String selectedEntityId;
+    private String activeHudActionId;
     private long simulationTick;
     private int playerGold;
     private int playerLives;
@@ -73,28 +82,36 @@ public final class SandboxScene implements Scene {
         EnemyCatalog enemyCatalog,
         TowerCatalog towerCatalog,
         BuilderCatalog builderCatalog,
+        UiActionCatalog uiActionCatalog,
         WaveCatalog waveCatalog,
         double preWaveDelaySeconds,
         double postWaveDelaySeconds,
         String defaultTowerId,
         String defaultBuilderId,
+        String defaultHudActionId,
         int startingGold,
         int startingLives,
         BooleanSupplier placeTowerRequested,
         Supplier<Optional<Vector3>> selectWorldPointRequested,
-        Supplier<Optional<Vector3>> contextWorldPointRequested
+        Supplier<Optional<Vector3>> contextWorldPointRequested,
+        Supplier<Optional<String>> hudActionRequested,
+        Supplier<Optional<String>> hudHotkeyActionRequested
     ) {
         this.grid = grid;
         this.gameplayMap = gameplayMap;
         this.enemyCatalog = enemyCatalog;
         this.towerCatalog = towerCatalog;
         this.builderCatalog = builderCatalog;
+        this.uiActionCatalog = uiActionCatalog;
         this.waveCatalog = waveCatalog;
         this.defaultTowerId = defaultTowerId;
         this.defaultBuilderId = defaultBuilderId;
+        this.defaultHudActionId = defaultHudActionId;
         this.placeTowerRequested = placeTowerRequested;
         this.selectWorldPointRequested = selectWorldPointRequested;
         this.contextWorldPointRequested = contextWorldPointRequested;
+        this.hudActionRequested = hudActionRequested;
+        this.hudHotkeyActionRequested = hudHotkeyActionRequested;
 
         this.activeEnemies = new ArrayList<>();
         this.activeTowers = new ArrayList<>();
@@ -103,6 +120,7 @@ public final class SandboxScene implements Scene {
         this.builderUnit = createDefaultBuilderInstance();
         this.selectedEntityType = "";
         this.selectedEntityId = "";
+        this.activeHudActionId = resolveFallbackActionId();
         this.simulationTick = 0L;
         this.playerGold = startingGold;
         this.playerLives = startingLives;
@@ -168,7 +186,11 @@ public final class SandboxScene implements Scene {
         });
 
         contextWorldPointRequested.get().ifPresent(worldPoint -> {
-            if ("builder".equals(selectedEntityType) && builderUnit.instanceId().equals(selectedEntityId)) {
+            if (
+                "move".equals(activeHudActionId)
+                    && "builder".equals(selectedEntityType)
+                    && builderUnit.instanceId().equals(selectedEntityId)
+            ) {
                 pendingCommands.add(new MoveBuilderCommand(
                     "local",
                     simulationTick,
@@ -177,6 +199,14 @@ public final class SandboxScene implements Scene {
                 ));
             }
         });
+
+        hudActionRequested.get().ifPresent(actionId ->
+            pendingCommands.add(new UiActionCommand("local", simulationTick, actionId))
+        );
+
+        hudHotkeyActionRequested.get().ifPresent(actionId ->
+            pendingCommands.add(new UiActionCommand("local", simulationTick, actionId))
+        );
     }
 
     private void processPendingCommands() {
@@ -185,10 +215,41 @@ public final class SandboxScene implements Scene {
             if (command instanceof SelectEntityCommand selectEntityCommand) {
                 selectedEntityType = selectEntityCommand.entityType();
                 selectedEntityId = selectEntityCommand.entityId();
+                activeHudActionId = resolveFallbackActionId();
             } else if (command instanceof MoveBuilderCommand moveBuilderCommand) {
                 applyMoveBuilderCommand(moveBuilderCommand);
+            } else if (command instanceof UiActionCommand uiActionCommand) {
+                applyUiActionCommand(uiActionCommand);
             }
         }
+    }
+
+    private void applyUiActionCommand(UiActionCommand command) {
+        if (!isActionAvailableForCurrentSelection(command.actionId())) {
+            return;
+        }
+        activeHudActionId = command.actionId();
+    }
+
+    private boolean isActionAvailableForCurrentSelection(String actionId) {
+        if (actionId == null || actionId.isBlank()) {
+            return false;
+        }
+        String selectedType = selectedEntityType.isBlank() ? "none" : selectedEntityType;
+        return uiActionCatalog.actionsForEntityType(selectedType).stream()
+            .map(UiActionDefinition::id)
+            .anyMatch(actionId::equals);
+    }
+
+    private String resolveFallbackActionId() {
+        if (isActionAvailableForCurrentSelection(defaultHudActionId)) {
+            return defaultHudActionId;
+        }
+        String selectedType = selectedEntityType.isBlank() ? "none" : selectedEntityType;
+        return uiActionCatalog.actionsForEntityType(selectedType).stream()
+            .map(UiActionDefinition::id)
+            .findFirst()
+            .orElse("");
     }
 
     private void applyMoveBuilderCommand(MoveBuilderCommand command) {
@@ -306,6 +367,16 @@ public final class SandboxScene implements Scene {
             ))
             .toList();
 
+        String selectedType = selectedEntityType.isBlank() ? "none" : selectedEntityType;
+        List<HudActionView> hudActionViews = uiActionCatalog.actionsForEntityType(selectedType).stream()
+            .map(action -> new HudActionView(
+                action.id(),
+                action.label(),
+                action.hotkey(),
+                action.id().equals(activeHudActionId)
+            ))
+            .toList();
+
         MapDebugView mapDebugView = new MapDebugView(
             gameplayMap.path(),
             gameplayMap.buildableCells(),
@@ -318,6 +389,8 @@ public final class SandboxScene implements Scene {
             towerViews,
             builderViews,
             enemyViews,
+            hudActionViews,
+            activeHudActionId,
             selectedEntityType,
             selectedEntityId,
             matchStateMachine.currentWaveNumber(),

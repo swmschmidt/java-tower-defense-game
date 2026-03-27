@@ -8,6 +8,8 @@ public record WorldView(
 	List<TowerView> towers,
 	List<BuilderView> builders,
 	List<EnemyView> enemies,
+	List<HudActionView> hudActions,
+	String activeHudActionId,
 	String selectedEntityType,
 	String selectedEntityId,
 	int currentWave,
@@ -22,9 +24,10 @@ public record WorldView(
 		towers = List.copyOf(towers);
 		builders = List.copyOf(builders);
 		enemies = List.copyOf(enemies);
+		hudActions = List.copyOf(hudActions);
 	}
 
 	public WorldView(GridDefinition grid) {
-		this(grid, null, List.of(), List.of(), List.of(), "", "", 1, 1, "PRE_WAVE", 0, 0, false, false);
+		this(grid, null, List.of(), List.of(), List.of(), List.of(), "", "", "", 1, 1, "PRE_WAVE", 0, 0, false, false);
 	}
 }

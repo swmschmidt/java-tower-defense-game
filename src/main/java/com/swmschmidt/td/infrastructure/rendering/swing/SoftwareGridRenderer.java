@@ -4,6 +4,7 @@ import com.swmschmidt.td.core.math.Vector3;
 import com.swmschmidt.td.core.scene.BuilderView;
 import com.swmschmidt.td.core.scene.EnemyView;
 import com.swmschmidt.td.core.scene.GridDefinition;
+import com.swmschmidt.td.core.scene.HudActionView;
 import com.swmschmidt.td.core.scene.MapDebugView;
 import com.swmschmidt.td.core.scene.TowerView;
 import com.swmschmidt.td.core.scene.WorldView;
@@ -14,12 +15,18 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.List;
 
 public final class SoftwareGridRenderer implements FrameRenderer {
     private static final double NEAR_PLANE = 0.1;
+    private final LowerHudLayout lowerHudLayout;
+
+    public SoftwareGridRenderer() {
+        this.lowerHudLayout = new LowerHudLayout();
+    }
 
     @Override
     public BufferedImage render(WorldView worldView, FixedCamera camera, int width, int height) {
@@ -35,15 +42,19 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         drawTowers(graphics, worldView.towers(), camera, width, height);
         drawBuilders(graphics, worldView.builders(), camera, width, height);
         drawEnemies(graphics, worldView.enemies(), camera, width, height);
-        drawHud(
+        drawTopStatus(
             graphics,
             worldView.currentWave(),
             worldView.totalWaves(),
             worldView.matchState(),
             worldView.playerGold(),
-            worldView.playerLives(),
-            worldView.selectedEntityType(),
-            worldView.selectedEntityId()
+            worldView.playerLives()
+        );
+        drawLowerHud(
+            graphics,
+            worldView,
+            width,
+            height
         );
         if (worldView.defeatTriggered()) {
             drawDefeatLabel(graphics, width);
@@ -74,31 +85,133 @@ public final class SoftwareGridRenderer implements FrameRenderer {
         graphics.fillRect(0, 0, width, height);
     }
 
-    private void drawHud(
+    private void drawTopStatus(
         Graphics2D graphics,
         int currentWave,
         int totalWaves,
         String matchState,
         int gold,
-        int lives,
-        String selectedEntityType,
-        String selectedEntityId
+        int lives
     ) {
         graphics.setColor(new Color(16, 20, 30, 170));
-        graphics.fillRoundRect(14, 14, 430, 128, 12, 12);
+        graphics.fillRoundRect(14, 14, 290, 92, 12, 12);
         graphics.setColor(new Color(224, 228, 235));
         graphics.setFont(graphics.getFont().deriveFont(16f));
         graphics.drawString("Wave: " + currentWave + " / " + totalWaves, 24, 38);
         graphics.drawString("State: " + matchState, 24, 58);
         graphics.drawString("Gold: " + gold, 24, 78);
-        graphics.drawString("Lives: " + lives, 24, 98);
-        String selected = selectedEntityType.isBlank() || selectedEntityId.isBlank()
-            ? "none"
-            : selectedEntityType + "(" + selectedEntityId + ")";
-        graphics.drawString("Selected: " + selected, 24, 118);
-        graphics.setFont(graphics.getFont().deriveFont(14f));
-        graphics.drawString("Press T to place tower", 186, 98);
-        graphics.drawString("Left click: select | Right click: move selected builder", 186, 118);
+        graphics.drawString("Lives: " + lives, 160, 78);
+    }
+
+    private void drawLowerHud(Graphics2D graphics, WorldView worldView, int width, int height) {
+        LowerHudLayout.HudSections sections = lowerHudLayout.sections(width, height);
+        Rectangle outer = sections.outer();
+        Rectangle left = sections.left();
+        Rectangle center = sections.center();
+        Rectangle right = sections.right();
+
+        graphics.setColor(new Color(15, 17, 24, 220));
+        graphics.fillRoundRect(outer.x, outer.y, outer.width, outer.height, 14, 14);
+        graphics.setColor(new Color(68, 74, 90));
+        graphics.drawRoundRect(outer.x, outer.y, outer.width, outer.height, 14, 14);
+
+        drawMinimapPlaceholder(graphics, left, worldView);
+        drawSelectedEntityPanel(graphics, center, worldView);
+        drawActionPanel(graphics, right, worldView.hudActions(), width, height);
+    }
+
+    private void drawMinimapPlaceholder(Graphics2D graphics, Rectangle area, WorldView worldView) {
+        graphics.setColor(new Color(26, 32, 42, 220));
+        graphics.fillRoundRect(area.x, area.y, area.width, area.height, 10, 10);
+        graphics.setColor(new Color(84, 93, 110));
+        graphics.drawRoundRect(area.x, area.y, area.width, area.height, 10, 10);
+
+        int mapPadding = 12;
+        Rectangle mapRect = new Rectangle(area.x + mapPadding, area.y + 26, area.width - (mapPadding * 2), area.height - 38);
+        graphics.setColor(new Color(34, 45, 58));
+        graphics.fillRect(mapRect.x, mapRect.y, mapRect.width, mapRect.height);
+        graphics.setColor(new Color(113, 129, 152));
+        graphics.drawRect(mapRect.x, mapRect.y, mapRect.width, mapRect.height);
+
+        graphics.setColor(new Color(224, 228, 235));
+        graphics.setFont(graphics.getFont().deriveFont(13f));
+        graphics.drawString("Minimap", area.x + 10, area.y + 18);
+        graphics.setFont(graphics.getFont().deriveFont(11f));
+        graphics.drawString("placeholder", area.x + 10, area.y + area.height - 8);
+
+        if (!worldView.builders().isEmpty()) {
+            graphics.setColor(new Color(112, 225, 181));
+            int px = mapRect.x + mapRect.width / 2;
+            int py = mapRect.y + mapRect.height / 2;
+            graphics.fillOval(px - 3, py - 3, 6, 6);
+        }
+    }
+
+    private void drawSelectedEntityPanel(Graphics2D graphics, Rectangle area, WorldView worldView) {
+        graphics.setColor(new Color(26, 32, 42, 220));
+        graphics.fillRoundRect(area.x, area.y, area.width, area.height, 10, 10);
+        graphics.setColor(new Color(84, 93, 110));
+        graphics.drawRoundRect(area.x, area.y, area.width, area.height, 10, 10);
+
+        String selectedTitle = worldView.selectedEntityType().isBlank()
+            ? "No Selection"
+            : worldView.selectedEntityType() + " / " + worldView.selectedEntityId();
+
+        int portraitSize = Math.min(86, area.height - 40);
+        int portraitX = area.x + 12;
+        int portraitY = area.y + 28;
+        graphics.setColor(new Color(48, 56, 72));
+        graphics.fillRect(portraitX, portraitY, portraitSize, portraitSize);
+        graphics.setColor(new Color(120, 132, 154));
+        graphics.drawRect(portraitX, portraitY, portraitSize, portraitSize);
+        graphics.setColor(new Color(222, 228, 237));
+        graphics.setFont(graphics.getFont().deriveFont(10f));
+        graphics.drawString("image", portraitX + 24, portraitY + portraitSize / 2);
+
+        int textX = portraitX + portraitSize + 12;
+        graphics.setColor(new Color(224, 228, 235));
+        graphics.setFont(graphics.getFont().deriveFont(13f));
+        graphics.drawString("Selected Unit", area.x + 12, area.y + 18);
+        graphics.setFont(graphics.getFont().deriveFont(12f));
+        graphics.drawString(selectedTitle, textX, portraitY + 16);
+        graphics.drawString("HP: placeholder", textX, portraitY + 36);
+        graphics.drawString("Action: " + worldView.activeHudActionId(), textX, portraitY + 56);
+        graphics.drawString("Left-click to select", textX, portraitY + 76);
+    }
+
+    private void drawActionPanel(
+        Graphics2D graphics,
+        Rectangle area,
+        List<HudActionView> actions,
+        int width,
+        int height
+    ) {
+        graphics.setColor(new Color(26, 32, 42, 220));
+        graphics.fillRoundRect(area.x, area.y, area.width, area.height, 10, 10);
+        graphics.setColor(new Color(84, 93, 110));
+        graphics.drawRoundRect(area.x, area.y, area.width, area.height, 10, 10);
+        graphics.setColor(new Color(224, 228, 235));
+        graphics.setFont(graphics.getFont().deriveFont(13f));
+        graphics.drawString("Actions", area.x + 10, area.y + 18);
+
+        for (LowerHudLayout.ActionButtonLayout buttonLayout : lowerHudLayout.actionButtons(width, height, actions)) {
+            HudActionView action = buttonLayout.action();
+            Rectangle bounds = buttonLayout.bounds();
+
+            graphics.setColor(action.selected() ? new Color(84, 122, 184) : new Color(52, 64, 84));
+            graphics.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 8, 8);
+            graphics.setColor(new Color(140, 156, 184));
+            graphics.drawRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 8, 8);
+            graphics.setColor(new Color(236, 239, 245));
+            graphics.setFont(graphics.getFont().deriveFont(12f));
+            graphics.drawString(action.label(), bounds.x + 10, bounds.y + 20);
+            graphics.setFont(graphics.getFont().deriveFont(11f));
+            graphics.drawString("[" + action.hotkey() + "]", bounds.x + bounds.width - 34, bounds.y + 20);
+        }
+
+        graphics.setColor(new Color(170, 181, 198));
+        graphics.setFont(graphics.getFont().deriveFont(11f));
+        graphics.drawString("Right-click world to execute Move", area.x + 10, area.y + area.height - 10);
     }
 
     private void drawGroundGrid(Graphics2D graphics, GridDefinition grid, FixedCamera camera, int width, int height) {
