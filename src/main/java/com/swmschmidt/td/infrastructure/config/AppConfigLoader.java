@@ -52,7 +52,12 @@ public final class AppConfigLoader {
             vectorProperty(properties, "camera.target"),
             doubleProperty(properties, "camera.fov_degrees"),
             intProperty(properties, "grid.half_size"),
-            doubleProperty(properties, "grid.cell_size")
+            doubleProperty(properties, "grid.cell_size"),
+            required(properties, "content.map_file"),
+            required(properties, "content.enemies_file"),
+            required(properties, "gameplay.spawn.enemy_id"),
+            doubleProperty(properties, "gameplay.spawn.interval_seconds"),
+            intProperty(properties, "gameplay.spawn.max_count")
         );
     }
 
